@@ -6,7 +6,7 @@ from aiotftp.packet import parse_packet
 
 class TftpWriteProtocol(asyncio.DatagramProtocol):
     """A WRQ protocol to serve bytes from a file-like object."""
-    def __init__(self, remote, buffer, callback):
+    def __init__(self, remote, buffer, callback=None):
         self.buffer = buffer
         self.remote = remote
         self.block_no = 1
@@ -21,7 +21,8 @@ class TftpWriteProtocol(asyncio.DatagramProtocol):
         self.transmit_loop()
 
     def connection_lost(self, exc):
-        self.callback(self.buffer)
+        if self.callback:
+            self.callback(self.buffer)
 
     def datagram_received(self, buffer, remote):
         if remote[1] != self.remote[1]:

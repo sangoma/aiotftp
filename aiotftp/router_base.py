@@ -12,6 +12,9 @@ class TftpRouter:
         """Return either an IO object to read from, or an ErrorPacket."""
         raise NotImplementedError
 
+    def rrq_complete(self):
+        """Called when previously recieved rrq is completed."""
+
     def wrq_recieved(self,
                      packet: RequestPacket,
                      remote_addr
@@ -21,4 +24,3 @@ class TftpRouter:
 
     def wrq_complete(self, buffer: IO[bytes], remote_addr):
         """Recieve previously supplied IO object after the WRQ completes."""
-        raise NotImplementedError
