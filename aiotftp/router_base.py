@@ -19,6 +19,6 @@ class TftpRouter:
         """Return either the IO object to write to, or an ErrorPacket."""
         raise NotImplementedError
 
-    def wrq_processed(self, buffer: IO[bytes], remote_addr):
+    def wrq_complete(self, buffer: IO[bytes], remote_addr):
         """Recieve previously supplied IO object after the WRQ completes."""
         raise NotImplementedError
