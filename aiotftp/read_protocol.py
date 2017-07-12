@@ -6,9 +6,8 @@ from aiotftp.opcode import Opcode
 
 class TftpReadProtocol(asyncio.DatagramProtocol):
     """A RRQ protocol to serve bytes from a file-like object."""
-    def __init__(self, remote, buffer, future=None):
+    def __init__(self, remote, buffer):
         self.buffer = buffer
-        self.future = future
         self.remote = remote
         self.loop = asyncio.get_event_loop()
 
@@ -23,11 +22,7 @@ class TftpReadProtocol(asyncio.DatagramProtocol):
         self.transmit_loop()
 
     def connection_lost(self, exc):
-        if self.future:
-            if exc:
-                self.future.set_exception(exc)
-            else:
-                self.future.set_result(True)
+        pass
 
     def datagram_received(self, buffer, remote):
         """Handle the ACKs for DATA packets sent."""
