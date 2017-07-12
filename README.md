@@ -32,6 +32,10 @@ from aiotftp import TftpProtocol
 
 class Router(TftpRouter):
     def rrq_recieved(self, packet, remote):
+        if packet.filename == "give_me_an_error":
+            return create_packet(Opcode.ERROR,
+                                 error_code=ErrorCode.FILENOTFOUND,
+                                 error_msg="not found")
         return io.BytesIO(b"some file contents\nsome new line\n")
 
     def rrq_complete(self):
