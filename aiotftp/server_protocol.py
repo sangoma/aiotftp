@@ -6,6 +6,7 @@ from aiotftp.opcode import Opcode
 from aiotftp.packet import ErrorPacket
 from aiotftp.packet import create_packet
 from aiotftp.packet import parse_packet
+from aiotftp.read_protocol import TftpWriteProtocol
 from aiotftp.write_protocol import TftpWriteProtocol
 
 
