@@ -10,6 +10,7 @@ class TftpWriteProtocol(asyncio.DatagramProtocol):
         self.buffer = buffer
         self.remote = remote
         self.block_no = 1
+        self.callback = callback
 
         self.loop = asyncio.get_event_loop()
         self.transmit_loop_handle = None
