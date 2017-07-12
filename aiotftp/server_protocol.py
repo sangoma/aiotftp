@@ -49,7 +49,7 @@ class TftpProtocol(asyncio.DatagramProtocol):
                 self.transport.sendto(iobuf.to_bytes(), remote)
             else:
                 def handler():
-                    callback = getattr(self.router.rrq_complete, None)
+                    callback = getattr(self.router, "rrq_complete", None)
                     return TftpReadProtocol(remote,
                                             iobuf,
                                             callback)
