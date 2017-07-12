@@ -29,7 +29,7 @@ class TftpWriteProtocol(asyncio.DatagramProtocol):
 
         packet = parse_packet(buffer)
         if packet.opcode == Opcode.DATA and packet.block_no == self.block_no:
-            self.buffer.write(packet.data)  # TODO: should probably verify this
+            self.buffer.write(packet.data)
 
             self.cur_buffer = self.ack_for(self.block_no)
             if len(packet.data) == 512:
