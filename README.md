@@ -31,6 +31,14 @@ from aiotftp import TftpProtocol
 
 
 class Router(TftpRouter):
+    def __init__(self, future):
+        self.future = future
+
+    @classmethod
+    def with_future(cls):
+        future = asyncio.Future()
+        return cls(future), future
+
     def rrq_recieved(self, packet, remote):
         if packet.filename == "give_me_an_error":
             return create_packet(Opcode.ERROR,
@@ -39,17 +47,17 @@ class Router(TftpRouter):
         return io.BytesIO(b"some file contents\nsome new line\n")
 
     def rrq_complete(self):
-        print("read request completed successfully")
+        self.future.set_result(True)
 
     def wrq_recieved(self, packet, remote):
         return io.BytesIO()
 
     def wrq_complete(self, buffer):
         buffer.seek(0)
-        print(f"got: `{buffer.read(2048)}` from write request")
+        self.future.set_result(buffer.read())
 
 
-router = Router()
+router, future = Router.with_future()
 loop = asyncio.get_event_loop()
 listen = loop.create_datagram_endpoint(
     lambda: TftpProtocol(router),
@@ -57,7 +65,8 @@ listen = loop.create_datagram_endpoint(
 transport, protocol = loop.run_until_complete(listen)
 
 try:
-    loop.run_forever()
+    loop.run_until_complete(future)
+    print(f"result: '{future.result()}'")
 finally:
     transport.close()
     loop.close()
