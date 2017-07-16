@@ -13,7 +13,6 @@ from aiotftp.write_protocol import TftpWriteProtocol
 class TftpProtocol(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
     def __init__(self, router: TftpRouter):
-
         self.router = router
         self.loop = asyncio.get_event_loop()
 
