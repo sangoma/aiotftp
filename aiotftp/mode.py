@@ -15,9 +15,9 @@ class Mode(enum.Enum):
         if s == Mode.OCTET.value:
             return Mode.OCTET
         if s == Mode.MAIL.value:
-            raise PacketError(f"MAIL mode is intentionally not implemented")
+            raise PacketError("MAIL mode is intentionally not implemented")
 
-        raise PacketError(f"invalid mode '{s}'")
+        raise PacketError("invalid mode '{}'".format(s))
 
     def to_bytes(self):
         return bytes(self.value, encoding="ascii")

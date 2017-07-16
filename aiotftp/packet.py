@@ -23,7 +23,7 @@ def create_packet(opcode: Opcode,
     def must_have(lcls, *args):
         for arg in args:
             if lcls[arg] is None:
-                raise AioTftpError(f"missing parameters for {opcode}")
+                raise AioTftpError("missing parameters for {}".format(opcode))
 
     if opcode.is_request():
         must_have(locals(), "filename", "mode")

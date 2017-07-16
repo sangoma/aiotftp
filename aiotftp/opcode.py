@@ -16,7 +16,7 @@ class Opcode(enum.Enum):
         for opcd in cls:
             if i == opcd.value:
                 return opcd
-        raise PacketError(f"invalid opcode '{i}'")
+        raise PacketError("invalid opcode '{}'".format(i))
 
     def is_request(self):
         return self in [self.RRQ, self.WRQ]

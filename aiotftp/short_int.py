@@ -7,7 +7,7 @@ class ShortInt(int):
     def from_bytes(self, buf):
         if len(buf) != 2:
             raise AioTftpError("ShortInt requires exactly 2"
-                               f" bytes, {len(buf)} recieved")
+                               " bytes, {} recieved".format(len(buf)))
         return int.from_bytes(buf, byteorder="big")
 
     def to_bytes(self):
