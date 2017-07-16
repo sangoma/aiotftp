@@ -19,7 +19,7 @@ class Opcode(enum.Enum):
         raise PacketError("invalid opcode '{}'".format(i))
 
     def is_request(self):
-        return self in [self.RRQ, self.WRQ]
+        return self in [Opcode.RRQ, Opcode.WRQ]
 
     def to_bytes(self):
         return self.value.to_bytes()

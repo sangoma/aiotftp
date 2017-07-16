@@ -23,6 +23,11 @@ setup(
     description='Python 3.4+ asyncio TFTP server',
     long_description=read('README.md'),
     install_requires=[],
+    extras_require={
+        ':python_version == "3.4"': [
+            'backports.typing',
+        ],
+    },
     tests_require=['pytest'],
     setup_requires=['setuptools>=17.1'],
     entry_points={
@@ -34,6 +39,8 @@ setup(
         'Intended Audience :: Developers',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
         'Operating System :: OS Independent',
         'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
     ],

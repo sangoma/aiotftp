@@ -6,3 +6,5 @@ python:
 install:
   - pip install -e .
 script: py.test
+notifications:
+  email: false
