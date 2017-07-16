@@ -119,7 +119,7 @@ class DelayedAckClient(asyncio.DatagramProtocol):
 def test_read_routing_retransmit(client, loop):
     router, future = ReadRouter.with_future()
     loop.run_until_complete(loop.create_datagram_endpoint(
-        lambda: TftpProtocol(router),
+        lambda: TftpProtocol(router, timeout=0.2),
         local_addr=("127.0.0.1", 1069)))
     loop.run_until_complete(loop.create_datagram_endpoint(
         lambda: client,

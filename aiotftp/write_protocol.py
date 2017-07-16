@@ -6,11 +6,12 @@ from aiotftp.packet import parse_packet
 
 class TftpWriteProtocol(asyncio.DatagramProtocol):
     """A WRQ protocol to serve bytes from a file-like object."""
-    def __init__(self, remote, buffer, callback=None):
+    def __init__(self, remote, buffer, callback=None, timeout=2.0):
         self.buffer = buffer
         self.remote = remote
         self.block_no = 1
         self.callback = callback
+        self.timeout = timeout
 
         self.loop = asyncio.get_event_loop()
         self.transmit_loop_handle = None
@@ -49,7 +50,8 @@ class TftpWriteProtocol(asyncio.DatagramProtocol):
         thereafter, unless `reset_transmit_loop()` is called
         """
         self.transport.sendto(self.cur_buffer, self.remote)
-        self.transmit_loop_handle = self.loop.call_later(2, self.transmit_loop)
+        self.transmit_loop_handle = self.loop.call_later(self.timeout,
+                                                         self.transmit_loop)
 
     def reset_transmit_loop(self):
         self.transmit_loop_handle.cancel()
