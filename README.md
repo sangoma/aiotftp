@@ -23,6 +23,10 @@ operate on a per-request basis to either
 
 Eventually. Hopefully.
 
+## TODO
+
+Right now only `OCTET` mode is supported; should probably support `ASCII` as well.
+
 ## Examples?
 
 ```python
