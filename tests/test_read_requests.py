@@ -84,3 +84,44 @@ def test_read_routing(client, expected_bytes, loop):
     loop.run_until_complete(future)
     recvd_bytes = client.recieved.getbuffer().tobytes()
     assert recvd_bytes == expected_bytes
+
+
+class DelayedAckClient(asyncio.DatagramProtocol):
+    """Recieve each block 3 times before ACKing."""
+    def __init__(self, request):
+        self.request = request
+        self.recv = {}
+
+    def connection_made(self, transport):
+        self.transport = transport
+        transport.sendto(self.request.to_bytes(), ("127.0.0.1", 1069))
+
+    def datagram_received(self, data, addr):
+        pkt = parse_packet(data)
+        if pkt.block_no not in self.recv:
+            self.recv[pkt.block_no] = 1
+        else:
+            self.recv[pkt.block_no] += 1
+        if self.recv[pkt.block_no] == 3:
+            ack = create_packet(Opcode.ACK,
+                                block_no=pkt.block_no)
+            self.transport.sendto(ack.to_bytes(), addr)
+            if len(pkt.data) < 512:
+                self.transport.close()
+
+
+@pytest.mark.parametrize("client", [
+    DelayedAckClient(create_packet(
+        Opcode.RRQ, filename=SmallFile.name, mode=Mode.OCTET)),
+    DelayedAckClient(create_packet(
+        Opcode.RRQ, filename=LargeFile.name, mode=Mode.OCTET)),
+])
+def test_read_routing_retransmit(client, loop):
+    router, future = ReadRouter.with_future()
+    loop.run_until_complete(loop.create_datagram_endpoint(
+        lambda: TftpProtocol(router),
+        local_addr=("127.0.0.1", 1069)))
+    loop.run_until_complete(loop.create_datagram_endpoint(
+        lambda: client,
+        local_addr=("127.0.0.1", 0)))
+    loop.run_until_complete(future)
