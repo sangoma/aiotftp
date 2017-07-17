@@ -20,11 +20,6 @@ class LargeFile:
     bytes = (b"a" * 512) + b"z" * 128
 
 
-@pytest.fixture(scope='session')
-def loop():
-    return asyncio.get_event_loop()
-
-
 class ReadRouter(TftpRouter):
     def __init__(self, future):
         self.future = future
@@ -102,7 +97,7 @@ class DelayedAckClient(asyncio.DatagramProtocol):
             self.recv[pkt.block_no] = 1
         else:
             self.recv[pkt.block_no] += 1
-        if self.recv[pkt.block_no] == 3:
+        if self.recv[pkt.block_no] >= 3:
             ack = create_packet(Opcode.ACK,
                                 block_no=pkt.block_no)
             self.transport.sendto(ack.to_bytes(), addr)
