@@ -62,6 +62,7 @@ class TftpProtocol(asyncio.DatagramProtocol):
                 def handler():
                     callback = getattr(self.router, "wrq_complete", None)
                     return TftpWriteProtocol(remote,
+                                             packet.filename,
                                              iobuf,
                                              callback,
                                              timeout=self.timeout)

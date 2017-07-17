@@ -22,8 +22,8 @@ class WriteRouter(TftpRouter):
     def wrq_recieved(self, packet, remote):
         return io.BytesIO()
 
-    def wrq_complete(self, buf):
-        self.future.set_result(buf)
+    def wrq_complete(self, buf, filename, remote):
+        self.future.set_result((buf, filename, remote))
 
 
 class WriteClient(asyncio.DatagramProtocol):
@@ -63,5 +63,7 @@ def test_write_routing(buffer, loop):
     loop.run_until_complete(future)
 
     client_buf = buffer.getbuffer().tobytes()
-    written_buf = future.result().getbuffer().tobytes()
+    written, filename, remote = future.result()
+    written_buf = written.getbuffer().tobytes()
+    assert filename == "test"
     assert client_buf == written_buf
