@@ -51,6 +51,7 @@ class TftpProtocol(asyncio.DatagramProtocol):
                 def handler():
                     callback = getattr(self.router, "rrq_complete", None)
                     return TftpReadProtocol(remote,
+                                            packet.filename,
                                             iobuf,
                                             callback,
                                             timeout=self.timeout)

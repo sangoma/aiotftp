@@ -11,7 +11,7 @@ class TftpRouter:
                      ) -> Union[IO[bytes], ErrorPacket]:
         """Return either an IO object to read from, or an ErrorPacket."""
 
-    def rrq_complete(self):
+    def rrq_complete(self, filename, remote_addr):
         """Called when previously recieved rrq is completed."""
 
     def wrq_recieved(self,
@@ -20,5 +20,5 @@ class TftpRouter:
                      ) -> Union[IO[bytes], ErrorPacket]:
         """Return either the IO object to write to, or an ErrorPacket."""
 
-    def wrq_complete(self, buffer: IO[bytes], remote_addr):
+    def wrq_complete(self, buffer: IO[bytes], filename, remote_addr):
         """Recieve previously supplied IO object after the WRQ completes."""
