@@ -54,11 +54,11 @@ def loop():
 
 @pytest.fixture
 def test_server(loop):
-    local_addr = ("127.0.0.1", 1069)
-    _, protocol = loop.run_until_complete(create_tftp_server(TestingRouter,
-                                          loop=loop,
-                                          local_addr=local_addr,
-                                          timeout=0.1))
+    listen = create_tftp_server(TestingRouter,
+                                loop=loop,
+                                local_addr=("127.0.0.1", 1069),
+                                timeout=0.1)
+    _, protocol = loop.run_until_complete(listen)
     return protocol
 
 
