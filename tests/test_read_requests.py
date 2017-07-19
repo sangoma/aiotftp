@@ -22,6 +22,7 @@ class ReadClient(asyncio.DatagramProtocol):
         pkt = parse_packet(data)
         if pkt.block_no not in self.acked:
             self.recieved.write(pkt.data)
+            self.acked.append(pkt.block_no)
         ack = create_packet(Opcode.ACK,
                             block_no=pkt.block_no)
         self.transport.sendto(ack.to_bytes(), addr)
