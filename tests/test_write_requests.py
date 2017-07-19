@@ -1,39 +1,24 @@
 import asyncio
-import pytest
 import io
-from aiotftp import TftpRouter
-from aiotftp import TftpProtocol
-from aiotftp.error_code import ErrorCode
+import pytest
+import random
 from aiotftp.mode import Mode
 from aiotftp.opcode import Opcode
 from aiotftp.packet import create_packet
 from aiotftp.packet import parse_packet
 
 
-class WriteRouter(TftpRouter):
-    def __init__(self, future):
-        self.future = future
-
-    @classmethod
-    def with_future(cls):
-        future = asyncio.Future()
-        return cls(future), future
-
-    def wrq_recieved(self, packet, remote):
-        return io.BytesIO()
-
-    def wrq_complete(self, buf, filename, remote):
-        self.future.set_result((buf, filename, remote))
-
-
 class WriteClient(asyncio.DatagramProtocol):
-    def __init__(self, file):
+    def __init__(self, filename, file):
         self.file = file
+        self.filename = filename
         self.block_no = 0
 
     def connection_made(self, transport):
         self.transport = transport
-        req = create_packet(Opcode.WRQ, filename="test", mode=Mode.OCTET)
+        req = create_packet(Opcode.WRQ,
+                            filename=self.filename,
+                            mode=Mode.OCTET)
         transport.sendto(req.to_bytes(), ("127.0.0.1", 1069))
 
     def datagram_received(self, data, addr):
@@ -46,24 +31,18 @@ class WriteClient(asyncio.DatagramProtocol):
             self.transport.close()
 
 
-@pytest.mark.parametrize("buffer", [
-        io.BytesIO(b"small file"),
-        io.BytesIO(b"large file" * 60),
-])
-def test_write_routing(buffer, loop):
-    client = WriteClient(buffer)
-    router, future = WriteRouter.with_future()
-
-    loop.run_until_complete(loop.create_datagram_endpoint(
-        lambda: TftpProtocol(router),
-        local_addr=("127.0.0.1", 1069)))
-    loop.run_until_complete(loop.create_datagram_endpoint(
-        lambda: client,
+@pytest.fixture
+def write_request(file, router, loop):
+    """Perform each write request, returning received/expected bytes."""
+    filename, filebytes = file
+    _, wrq_client = loop.run_until_complete(loop.create_datagram_endpoint(
+        lambda: WriteClient(filename, io.BytesIO(filebytes)),
         local_addr=("127.0.0.1", 0)))
+    future = router.wrq_files[filename]
     loop.run_until_complete(future)
+    return future.result().getbuffer().tobytes(), filebytes
 
-    client_buf = buffer.getbuffer().tobytes()
-    written, filename, remote = future.result()
-    written_buf = written.getbuffer().tobytes()
-    assert filename == "test"
-    assert client_buf == written_buf
+
+def test_write_routing(write_request, loop):
+    received, expected = write_request
+    assert received == expected
