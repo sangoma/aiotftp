@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "c79b7e8465394a5f2c7f3d376d15b51c309c17fece3a632e53ce726423366a83"
+            "sha256": "4d5bebf6887a21b218a2310dfc5e1edca7bef3c254f5f0014387bca064880019"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -13,7 +13,12 @@
             }
         ]
     },
-    "default": {},
+    "default": {
+        "aiotftp": {
+            "editable": true,
+            "path": "."
+        }
+    },
     "develop": {
         "atomicwrites": {
             "hashes": [
