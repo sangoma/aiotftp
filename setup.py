@@ -20,7 +20,7 @@ setup(
     maintainer_email='terry@dtkerr.ca',
     packages=find_packages(),
     license='Mozilla Public License 2.0 (MPL 2.0)',
-    description='Python 3.4+ asyncio TFTP server',
+    description='Python 3.5+ asyncio TFTP server',
     long_description=read('README.md'),
     install_requires=[],
     extras_require={
