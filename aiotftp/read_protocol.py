@@ -1,11 +1,12 @@
 import asyncio
-from aiotftp.packet import create_packet
-from aiotftp.packet import parse_packet
+
 from aiotftp.opcode import Opcode
+from aiotftp.packet import create_packet, parse_packet
 
 
 class TftpReadProtocol(asyncio.DatagramProtocol):
     """A RRQ protocol to serve bytes from a file-like object."""
+
     def __init__(self, remote, filename, buffer, callback=None, timeout=2.0):
         self.buffer = buffer
         self.remote = remote
@@ -51,8 +52,8 @@ class TftpReadProtocol(asyncio.DatagramProtocol):
         thereafter, unless `reset_transmit_loop()` is called
         """
         self.transport.sendto(self.cur_buffer, self.remote)
-        self.transmit_loop_handle = self.loop.call_later(self.timeout,
-                                                         self.transmit_loop)
+        self.transmit_loop_handle = self.loop.call_later(
+            self.timeout, self.transmit_loop)
 
     def reset_transmit_loop(self):
         self.transmit_loop_handle.cancel()
@@ -63,6 +64,5 @@ class TftpReadProtocol(asyncio.DatagramProtocol):
         buffer = self.buffer.read(512)
         if len(buffer) < 512:
             self.at_end_of_file = True
-        self.cur_buffer = create_packet(Opcode.DATA,
-                                        block_no=self.block_no,
-                                        data=buffer).to_bytes()
+        self.cur_buffer = create_packet(
+            Opcode.DATA, block_no=self.block_no, data=buffer).to_bytes()

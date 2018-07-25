@@ -1,29 +1,31 @@
 import asyncio
+
 from aiotftp import TftpRouter
 from aiotftp.error_code import ErrorCode
 from aiotftp.mode import Mode
 from aiotftp.opcode import Opcode
-from aiotftp.packet import ErrorPacket
-from aiotftp.packet import create_packet
-from aiotftp.packet import parse_packet
+from aiotftp.packet import create_packet, ErrorPacket, parse_packet
 from aiotftp.read_protocol import TftpReadProtocol
 from aiotftp.write_protocol import TftpWriteProtocol
 
 
 class TftpProtocol(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
-    def __init__(self, router: TftpRouter, timeout=2.0):
+
+    def __init__(self, router: TftpRouter, timeout=2.0) -> None:
         self.router = router
         self.timeout = timeout
         self.loop = asyncio.get_event_loop()
 
-        opcode_err = create_packet(Opcode.ERROR,
-                                   error_code=ErrorCode.NOTDEFINED,
-                                   error_msg="invalid opcode")
+        opcode_err = create_packet(
+            Opcode.ERROR,
+            error_code=ErrorCode.NOTDEFINED,
+            error_msg="invalid opcode")
         self.opcode_err = opcode_err.to_bytes()
-        mode_err = create_packet(Opcode.ERROR,
-                                 error_code=ErrorCode.NOTDEFINED,
-                                 error_msg="OCTET mode only")
+        mode_err = create_packet(
+            Opcode.ERROR,
+            error_code=ErrorCode.NOTDEFINED,
+            error_msg="OCTET mode only")
         self.mode_err = mode_err.to_bytes()
 
     def connection_made(self, transport):
@@ -48,25 +50,29 @@ class TftpProtocol(asyncio.DatagramProtocol):
             if isinstance(iobuf, ErrorPacket):
                 self.transport.sendto(iobuf.to_bytes(), remote)
             else:
+
                 def handler():
                     callback = getattr(self.router, "rrq_complete", None)
-                    return TftpReadProtocol(remote,
-                                            packet.filename,
-                                            iobuf,
-                                            callback,
-                                            timeout=self.timeout)
+                    return TftpReadProtocol(
+                        remote,
+                        packet.filename,
+                        iobuf,
+                        callback,
+                        timeout=self.timeout)
         else:
             iobuf = self.router.wrq_recieved(packet, remote)
             if isinstance(iobuf, ErrorPacket):
                 self.transport.sendto(iobuf.to_bytes(), remote)
             else:
+
                 def handler():
                     callback = getattr(self.router, "wrq_complete", None)
-                    return TftpWriteProtocol(remote,
-                                             packet.filename,
-                                             iobuf,
-                                             callback,
-                                             timeout=self.timeout)
+                    return TftpWriteProtocol(
+                        remote,
+                        packet.filename,
+                        iobuf,
+                        callback,
+                        timeout=self.timeout)
 
         if handler:
             connect = self.loop.create_datagram_endpoint(

@@ -1,5 +1,4 @@
-from aiotftp import AioTftpError
-from aiotftp import PacketError
+from aiotftp import AioTftpError, PacketError
 from aiotftp.error_code import ErrorCode
 from aiotftp.mode import Mode
 from aiotftp.opcode import Opcode
@@ -8,18 +7,19 @@ from aiotftp.short_int import ShortInt
 
 def create_packet(opcode: Opcode,
                   *,
-                  filename: str=None,
-                  mode: Mode=None,
-                  block_no: int=None,
-                  data: bytes=None,
-                  error_code: ErrorCode=None,
-                  error_msg: str=None):
+                  filename: str = None,
+                  mode: Mode = None,
+                  block_no: int = None,
+                  data: bytes = None,
+                  error_code: ErrorCode = None,
+                  error_msg: str = None):
     """Create a Packet instance appropriate to the passed arguments.
 
     This convenience function is honestly quite messy, but more
     ergonomic than trying to work with all the sub-classes of the
     Packet type directly.
     """
+
     def must_have(lcls, *args):
         for arg in args:
             if lcls[arg] is None:
@@ -82,11 +82,8 @@ class RequestPacket(Packet):
         return cls(opcode, filename, mode)
 
     def to_bytes(self):
-        return (self.opcode.to_bytes() +
-                bytes(self.filename, "ascii") +
-                b"\x00" +
-                self.mode.to_bytes() +
-                b"\x00")
+        return (self.opcode.to_bytes() + bytes(self.filename, "ascii") +
+                b"\x00" + self.mode.to_bytes() + b"\x00")
 
 
 class DataPacket(Packet):
@@ -102,8 +99,7 @@ class DataPacket(Packet):
         return cls(block_no, data)
 
     def to_bytes(self):
-        return (self.opcode.to_bytes() +
-                ShortInt(self.block_no).to_bytes() +
+        return (self.opcode.to_bytes() + ShortInt(self.block_no).to_bytes() +
                 self.data)
 
 
@@ -134,7 +130,5 @@ class ErrorPacket(Packet):
         return cls(error_code, error_msg)
 
     def to_bytes(self):
-        return (self.opcode.to_bytes() +
-                self.error_code.to_bytes() +
-                bytes(self.error_msg, "ascii") +
-                b"\x00")
+        return (self.opcode.to_bytes() + self.error_code.to_bytes() + bytes(
+            self.error_msg, "ascii") + b"\x00")

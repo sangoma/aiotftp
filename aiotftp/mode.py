@@ -1,4 +1,5 @@
 import enum
+
 from aiotftp.exceptions import PacketError
 
 

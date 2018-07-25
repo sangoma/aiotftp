@@ -1,11 +1,12 @@
 import asyncio
+
 from aiotftp.opcode import Opcode
-from aiotftp.packet import create_packet
-from aiotftp.packet import parse_packet
+from aiotftp.packet import create_packet, parse_packet
 
 
 class TftpWriteProtocol(asyncio.DatagramProtocol):
     """A WRQ protocol to serve bytes from a file-like object."""
+
     def __init__(self, remote, filename, buffer, callback=None, timeout=2.0):
         self.buffer = buffer
         self.remote = remote
@@ -51,15 +52,13 @@ class TftpWriteProtocol(asyncio.DatagramProtocol):
         thereafter, unless `reset_transmit_loop()` is called
         """
         self.transport.sendto(self.cur_buffer, self.remote)
-        self.transmit_loop_handle = self.loop.call_later(self.timeout,
-                                                         self.transmit_loop)
+        self.transmit_loop_handle = self.loop.call_later(
+            self.timeout, self.transmit_loop)
 
     def reset_transmit_loop(self):
         self.transmit_loop_handle.cancel()
         self.transmit_loop()
 
     def ack_for(self, block_no):
-        packet = create_packet(Opcode.ACK,
-                               block_no=block_no)
+        packet = create_packet(Opcode.ACK, block_no=block_no)
         return packet.to_bytes()
-
