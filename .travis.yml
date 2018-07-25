@@ -1,10 +1,18 @@
 language: python
 python:
-  - "3.4"
-  - "3.5"
-  - "3.6"
+  - 3.5
+  - 3.6
+
+cache:
+  directories:
+  - $HOME/.cache/pip
+
+before_cache:
+  - rm -f $HOME/.cache/pip/log/debug.log
+
 install:
+  - pip install --upgrade pytest pytest-cov codecov -e .
   - pip install -e .
-script: py.test
-notifications:
-  email: false
+
+script:
+  - pytest tests
