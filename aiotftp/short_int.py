@@ -3,6 +3,7 @@ from aiotftp import AioTftpError
 
 class ShortInt(int):
     """Convenience class for the often-used short int."""
+
     @classmethod
     def from_bytes(self, buf):
         if len(buf) != 2:

@@ -1,4 +1,5 @@
 import enum
+
 from aiotftp import PacketError
 from aiotftp.short_int import ShortInt
 
