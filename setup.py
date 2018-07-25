@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-import codecs
 import os
 
 from setuptools import find_packages, setup
@@ -8,7 +6,7 @@ from setuptools import find_packages, setup
 
 def read(fname):
     file_path = os.path.join(os.path.dirname(__file__), fname)
-    return codecs.open(file_path, encoding='utf-8').read()
+    return open(file_path, encoding='utf-8').read()
 
 
 setup(
@@ -23,11 +21,6 @@ setup(
     description='Python 3.5+ asyncio TFTP server',
     long_description=read('README.md'),
     install_requires=[],
-    extras_require={
-        ':python_version == "3.4"': [
-            'backports.typing',
-        ],
-    },
     tests_require=['pytest'],
     setup_requires=['setuptools>=17.1'],
     entry_points={
