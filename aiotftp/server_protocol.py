@@ -8,6 +8,14 @@ from aiotftp.packet import create_packet, ErrorPacket, parse_packet
 from aiotftp.read_protocol import TftpReadProtocol
 from aiotftp.write_protocol import TftpWriteProtocol
 
+OPCODE_ERR = create_packet(
+    Opcode.ERROR, error_code=ErrorCode.NOTDEFINED,
+    error_msg="invalid opcode").to_bytes()
+
+MODE_ERR = create_packet(
+    Opcode.ERROR, error_code=ErrorCode.NOTDEFINED,
+    error_msg="OCTET mode only").to_bytes()
+
 
 class TftpProtocol(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
@@ -17,27 +25,16 @@ class TftpProtocol(asyncio.DatagramProtocol):
         self.timeout = timeout
         self.loop = asyncio.get_event_loop()
 
-        opcode_err = create_packet(
-            Opcode.ERROR,
-            error_code=ErrorCode.NOTDEFINED,
-            error_msg="invalid opcode")
-        self.opcode_err = opcode_err.to_bytes()
-        mode_err = create_packet(
-            Opcode.ERROR,
-            error_code=ErrorCode.NOTDEFINED,
-            error_msg="OCTET mode only")
-        self.mode_err = mode_err.to_bytes()
-
     def connection_made(self, transport):
         self.transport = transport
 
     def datagram_received(self, buffer, remote):
         packet = parse_packet(buffer)
         if not packet.is_request():
-            self.transport.sendto(self.opcode_err, remote)
+            self.transport.sendto(OPCODE_ERR, remote)
             return
         elif packet.mode != Mode.OCTET:
-            self.transport.sendto(self.mode_err, remote)
+            self.transport.sendto(MODE_ERR, remote)
             return
 
         self.dispatch(packet, remote)
