@@ -31,49 +31,34 @@ Right now only `OCTET` mode is supported; should probably support `ASCII` as wel
 
 ```python
 import asyncio
-import io
-from aiotftp import TftpRouter
-from aiotftp import TftpProtocol
+
+from aiotftp import Server, FileResponse, Response
 
 
-class Router(TftpRouter):
-    def __init__(self, future):
-        self.future = future
-
-    @classmethod
-    def with_future(cls):
-        future = asyncio.Future()
-        return cls(future), future
-
-    def rrq_recieved(self, packet, remote):
-        if packet.filename == "give_me_an_error":
-            return create_packet(Opcode.ERROR,
-                                 error_code=ErrorCode.FILENOTFOUND,
-                                 error_msg="not found")
-        return io.BytesIO(b"some file contents\nsome new line\n")
-
-    def rrq_complete(self):
-        self.future.set_result(True)
-
-    def wrq_recieved(self, packet, remote):
-        return io.BytesIO()
-
-    def wrq_complete(self, buffer):
-        buffer.seek(0)
-        self.future.set_result(buffer.read())
+async def rrq(request):
+    if request.filename == 'hello':
+        return Response(b'Hello World!\n')
+    return FileResponse(request.filename)
 
 
-router, future = Router.with_future()
-loop = asyncio.get_event_loop()
-listen = loop.create_datagram_endpoint(
-    lambda: TftpProtocol(router),
-    ("127.0.0.1", 69))
-transport, protocol = loop.run_until_complete(listen)
+async def wrq(request, transfer):
+    with open(request.filename, 'wb') as fp:
+        async for chunk in transfer:
+            fp.write(chunk)
 
-try:
-    loop.run_until_complete(future)
-    print(f"result: '{future.result()}'")
-finally:
-    transport.close()
+
+async def main(loop):
+    server = Server(rrq, wrq)
+    await loop.create_datagram_endpoint(server, local_addr=('0.0.0.0', 69))
+
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+
+    try:
+        loop.run_until_complete(main(loop))
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
     loop.close()
 ```
