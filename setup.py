@@ -11,7 +11,7 @@ def read(fname):
 
 setup(
     name='aiotftp',
-    version='0.0.1',
+    version='0.1.0',
     author='Terry Kerr',
     author_email='terry@dtkerr.ca',
     maintainer='Terry Kerr',
@@ -26,18 +26,18 @@ setup(
     ],
     tests_require=['pytest', 'pytest-asyncio'],
     setup_requires=['setuptools>=17.1'],
-    entry_points={
-        'pytest11': [
-            'aiotftp=aiotftp',
-        ]
-    },
     classifiers=[
+        'License :: OSI Approved :: Apache Software License',
         'Intended Audience :: Developers',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
-        'Operating System :: OS Independent',
-        'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
+        'Programming Language :: Python :: 3.7',
+        'Development Status :: 4 - Beta',
+        'Operating System :: POSIX',
+        'Operating System :: MacOS :: MacOS X',
+        'Operating System :: Microsoft :: Windows',
+        'Framework :: AsyncIO',
     ],
 )
