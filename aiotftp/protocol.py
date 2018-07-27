@@ -64,7 +64,7 @@ class RequestHandler(asyncio.DatagramProtocol):
         if packet.opcode == Opcode.RRQ:
             try:
                 response = await self.read(request)
-            except Exception as exc:
+            except Exception:
                 formatted_lines = traceback.format_exc().splitlines()
                 packet = create_packet(
                     Opcode.ERROR,
@@ -93,7 +93,7 @@ class RequestHandler(asyncio.DatagramProtocol):
                 remote_addr=addr)
             try:
                 await self.write(request, transfer)
-            except Exception as exc:
+            except Exception:
                 LOG.exception("Inbound transfer crashed")
             finally:
                 transport.close()
