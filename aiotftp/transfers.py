@@ -8,6 +8,7 @@ from .helpers import set_result, set_exception
 class Response:
     def __init__(self, body):
         self.body = body
+        self.length = len(body)
 
     async def start(self, writer):
         body = self.body
@@ -21,11 +22,13 @@ class Response:
 class FileResponse:
     def __init__(self, filename):
         self.filename = filename
+        self.length = 0
 
     async def start(self, writer):
         with open(self.filename, 'rb') as fobj:
             while True:
                 chunk = fobj.read(512)
+                self.length += len(chunk)
                 await writer.write(chunk)
                 if len(chunk) < 512:
                     break

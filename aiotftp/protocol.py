@@ -10,6 +10,7 @@ from .helpers import set_result
 from .packet import create_packet, parse_packet
 from .parser import ErrorCode, Mode, Opcode
 from .transfers import StreamReader
+from .logger import AccessLogger, access_log
 
 LOG = logging.getLogger(__name__)
 
@@ -24,13 +25,19 @@ MODE_ERR = create_packet(
 
 @attr.s
 class Request:
+    method = attr.ib()
     filename = attr.ib()
+    remote = attr.ib()
 
 
 class RequestHandler(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
 
-    def __init__(self, read, write, *, timeout=2.0, loop=None) -> None:
+    def __init__(self, read, write, *, loop=None,
+                 timeout=2.0,
+                 access_log_class=AccessLogger,
+                 access_log=access_log,
+                 access_log_format=AccessLogger.LOG_FORMAT) -> None:
         if loop is None:
             loop = asyncio.get_event_loop()
         self._loop = loop
@@ -39,6 +46,13 @@ class RequestHandler(asyncio.DatagramProtocol):
 
         self.read = read
         self.write = write
+
+        self.access_log = access_log
+        if access_log:
+            self.access_logger = access_log_class(access_log,
+                                                  access_log_format)
+        else:
+            self.access_logger = None
 
     def connection_made(self, transport):
         self.transport = transport
@@ -59,30 +73,37 @@ class RequestHandler(asyncio.DatagramProtocol):
                 self.start(packet, addr))
 
     async def start(self, packet, addr):
-        request = Request(packet.filename)
+        request = Request(
+            filename=packet.filename, remote=addr, method=packet.opcode)
+
+        if self.access_log:
+            now = self._loop.time()
 
         if packet.opcode == Opcode.RRQ:
             try:
                 response = await self.read(request)
             except Exception:
                 formatted_lines = traceback.format_exc().splitlines()
-                packet = create_packet(
-                    Opcode.ERROR,
-                    error_code=ErrorCode.NOTDEFINED,
-                    error_msg=formatted_lines[-1])
-                self.transport.sendto(packet.to_bytes(), addr)
+                self.transport.sendto(
+                    create_packet(
+                        Opcode.ERROR,
+                        error_code=ErrorCode.NOTDEFINED,
+                        error_msg=formatted_lines[-1]).to_bytes(), addr)
             else:
                 transport, protocol = await self._loop.create_datagram_endpoint(
                     lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
                     remote_addr=addr)
                 try:
                     await response.start(protocol)
+                    if self.access_log:
+                        self.log_access(request, response,
+                                        self._loop.time() - now)
                 except FileNotFoundError:
-                    packet = create_packet(
-                        Opcode.ERROR,
-                        error_code=ErrorCode.FILENOTFOUND,
-                        error_msg="not found")
-                    self.transport.sendto(packet.to_bytes(), addr)
+                    self.transport.sendto(
+                        create_packet(
+                            Opcode.ERROR,
+                            error_code=ErrorCode.FILENOTFOUND,
+                            error_msg="not found").to_Bytes(), addr)
                 finally:
                     transport.close()
 
@@ -93,6 +114,8 @@ class RequestHandler(asyncio.DatagramProtocol):
                 remote_addr=addr)
             try:
                 await self.write(request, transfer)
+                if self.access_log:
+                    self.log_access(request, None, self._loop.time() - now)
             except Exception:
                 LOG.exception("Inbound transfer crashed")
             finally:
@@ -111,6 +134,10 @@ class RequestHandler(asyncio.DatagramProtocol):
         if self.transport is not None:
             self.transport.close()
             self.transport = None
+
+    def log_access(self, request, response, time):
+        if self.access_logger is not None:
+            self.access_logger.log(request, response, time)
 
 
 class ReadRequestHandler(asyncio.DatagramProtocol):
