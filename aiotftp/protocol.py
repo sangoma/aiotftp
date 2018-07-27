@@ -163,6 +163,9 @@ class ReadRequestHandler(asyncio.DatagramProtocol):
 
     async def write(self, chunk) -> None:
         self.counter += 1
+        if self.counter > 65535:
+            self.counter = 0
+
         packet = create_packet(
             Opcode.DATA, block_no=self.counter, data=chunk).to_bytes()
 
@@ -238,4 +241,6 @@ class WriteRequestHandler(asyncio.DatagramProtocol):
                 await asyncio.sleep(self._timeout)
 
         self.counter += 1
+        if self.counter > 65535:
+            self.counter = 0
         self.ack_handler = self._loop.create_task(transmission_loop())
