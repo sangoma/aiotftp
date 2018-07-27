@@ -11,7 +11,7 @@ before_cache:
   - rm -f $HOME/.cache/pip/log/debug.log
 
 install:
-  - pip install --upgrade pytest pytest-cov codecov -e .
+  - pip install --upgrade async-generator pytest pytest-asyncio pytest-cov codecov -e .
   - pip install -e .
 
 script:

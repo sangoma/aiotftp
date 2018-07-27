@@ -1,8 +1,4 @@
-from aiotftp import AioTftpError, PacketError
-from aiotftp.error_code import ErrorCode
-from aiotftp.mode import Mode
-from aiotftp.opcode import Opcode
-from aiotftp.short_int import ShortInt
+from .parser import ErrorCode, Mode, Opcode, ShortInt
 
 
 def create_packet(opcode: Opcode,
@@ -23,7 +19,7 @@ def create_packet(opcode: Opcode,
     def must_have(lcls, *args):
         for arg in args:
             if lcls[arg] is None:
-                raise AioTftpError("missing parameters for {}".format(opcode))
+                raise ValueError("missing parameters for {}".format(opcode))
 
     if opcode.is_request():
         must_have(locals(), "filename", "mode")
@@ -53,7 +49,7 @@ def parse_packet(buf):
     for map_opcode, cls in map:
         if buf_opcode == map_opcode:
             return cls.from_bytes(buf)
-    raise PacketError("buffer does not contain valid TFTP packet")
+    raise ValueError("buffer does not contain valid TFTP packet")
 
 
 def extract_cstring(bytes):

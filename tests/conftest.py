@@ -1,67 +1,66 @@
 import asyncio
-import io
+
+from aiotftp import Server, Response
+from async_generator import yield_, async_generator
 import pytest
-from aiotftp import TftpRouter
-from aiotftp import create_tftp_server
+
+FILES = {
+    'small_file': b'\x01small\x02',
+    'large_file': b'a' * 1000,
+    'small_aligned_file': b'a' * 512,
+    'large_aligned_file': b'a' * 1024,
+}
 
 
-FILES = [
-    ("small_file", b"\x01small\x02"),
-    ("large_file", b"a" * 1000),
-    ("small_aligned_file", b"a" * 512),
-    ("large_aligned_file", b"a" * 1024),
-]
-FILENAMES = [name for name, _ in FILES]
-
-
-@pytest.fixture(params=FILES)
-def file(request):
+@pytest.fixture(params=list(FILES.items()))
+def files(request):
     return request.param
 
 
-@pytest.fixture(params=FILENAMES)
-def filename(request):
-    return request.param
-
-
-class TestingRouter(TftpRouter):
-    def __init__(self):
-        self.wrq_files = {filename: asyncio.Future() for filename in FILENAMES}
-        self.rrq_files = {filename: (asyncio.Future(), bytestr)
-                          for filename, bytestr in FILES}
-
-    def rrq_recieved(self, packet, remote):
-        if packet.filename not in self.rrq_files:
-            raise RuntimeError("no such file '{}'".format(packet.filename))
-        _, buffer = self.rrq_files[packet.filename]
-        return io.BytesIO(buffer)
-
-    def rrq_complete(self, filename, remote):
-        future, _ = self.rrq_files[filename]
-        future.set_result(True)
-
-    def wrq_recieved(self, packet, remote):
-        return io.BytesIO()
-
-    def wrq_complete(self, buffer, filename, remote):
-        self.wrq_files[filename].set_result(buffer)
-
-
-@pytest.fixture(scope='session')
-def loop():
-    return asyncio.get_event_loop()
+@pytest.fixture
+def filename(files):
+    return files[0]
 
 
 @pytest.fixture
-def test_server(loop):
-    listen = create_tftp_server(TestingRouter,
-                                loop=loop,
-                                local_addr=("127.0.0.1", 1069),
-                                timeout=0.1)
-    _, protocol = loop.run_until_complete(listen)
-    return protocol
+def contents(files):
+    return files[1]
 
 
 @pytest.fixture
-def router(test_server):
-    return test_server.router
+@async_generator
+async def server(event_loop):
+    class Runner:
+        def __init__(self):
+            self.rrq_files = {filename: asyncio.Future() for filename in FILES}
+            self.wrq_files = {filename: asyncio.Future() for filename in FILES}
+
+        async def rrq(self, request):
+            try:
+                contents = FILES[request.filename]
+            except KeyError:
+                raise FileNotFoundError(request.filename)
+
+            self.rrq_files[request.filename].set_result(None)
+            return Response(body=contents)
+
+        async def wrq(self, request, transfer):
+            try:
+                future = self.wrq_files[request.filename]
+            except KeyError:
+                raise FileNotFoundError(request.filename)
+
+            payload = bytearray()
+            while True:
+                chunk = await transfer.read()
+                if not chunk:
+                    return future.set_result(payload)
+                payload.extend(chunk)
+
+    runner = Runner()
+    server = Server(runner.rrq, runner.wrq, timeout=0.2)
+    _, protocol = await event_loop.create_datagram_endpoint(
+        server, local_addr=('0.0.0.0', 1069))
+
+    await yield_(runner)
+    await protocol.shutdown(timeout=2)

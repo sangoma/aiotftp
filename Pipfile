@@ -5,6 +5,8 @@ name = "pypi"
 
 [packages]
 aiotftp = {editable = true, path = "."}
+attrs = "*"
+async-timeout = "*"
 
 [dev-packages]
 "flake8" = "*"
@@ -12,4 +14,6 @@ aiotftp = {editable = true, path = "."}
 "flake8-import-order" = ">=0.9"
 mypy = ">=0.610"
 pytest = "*"
+pytest-asyncio = "*"
 tox = "*"
+async-generator = "*"

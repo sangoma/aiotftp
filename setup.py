@@ -20,8 +20,11 @@ setup(
     license='Mozilla Public License 2.0 (MPL 2.0)',
     description='Python 3.5+ asyncio TFTP server',
     long_description=read('README.md'),
-    install_requires=[],
-    tests_require=['pytest'],
+    install_requires=[
+        'attrs',
+        'async-timeout'
+    ],
+    tests_require=['pytest', 'pytest-asyncio'],
     setup_requires=['setuptools>=17.1'],
     entry_points={
         'pytest11': [
