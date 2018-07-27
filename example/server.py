@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from aiotftp import Server, FileResponse, Response
 
@@ -21,6 +22,7 @@ async def main(loop):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     loop = asyncio.get_event_loop()
 
     try:
