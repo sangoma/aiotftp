@@ -103,4 +103,4 @@ def test_opcode_to_bytes(opcode, expected):
     (Opcode.DATA, False),
 ])
 def test_opcode_is_request(opcode, expected):
-    assert opcode.is_request() == expected
+    assert opcode.is_request == expected
