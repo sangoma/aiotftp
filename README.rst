@@ -1,5 +1,3 @@
-`Build Status <https://travis-ci.org/sangoma/aiotftp>`__
-
 aiotftp
 =======
 

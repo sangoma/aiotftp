@@ -1,26 +1,20 @@
 import asyncio
-from contextlib import suppress
 import logging
 import traceback
+from contextlib import suppress
 
 import async_timeout
 import attr
 
 from .helpers import set_result
-from .packet import create_packet, parse_packet
-from .parser import ErrorCode, Mode, Opcode
-from .transfers import StreamReader
 from .logger import AccessLogger, access_log
+from .packet import Ack, Error, Data, ErrorCode, Mode, Opcode, parse
+from .transfers import StreamReader
 
 LOG = logging.getLogger(__name__)
 
-OPCODE_ERR = create_packet(
-    Opcode.ERROR, error_code=ErrorCode.NOTDEFINED,
-    error_msg="invalid opcode").to_bytes()
-
-MODE_ERR = create_packet(
-    Opcode.ERROR, error_code=ErrorCode.NOTDEFINED,
-    error_msg="OCTET mode only").to_bytes()
+OPCODE_ERR = bytes(Error(ErrorCode.NOTDEFINED, message="invalid opcode"))
+MODE_ERR = bytes(Error(ErrorCode.NOTDEFINED, message="OCTET mode only"))
 
 
 @attr.s
@@ -33,7 +27,11 @@ class Request:
 class RequestHandler(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
 
-    def __init__(self, read, write, *, loop=None,
+    def __init__(self,
+                 read,
+                 write,
+                 *,
+                 loop=None,
                  timeout=2.0,
                  access_log_class=AccessLogger,
                  access_log=access_log,
@@ -63,14 +61,17 @@ class RequestHandler(asyncio.DatagramProtocol):
         self._task_handler = None
 
     def datagram_received(self, data, addr):
-        packet = parse_packet(data)
-        if not packet.is_request():
+        packet = parse(data)
+        if not packet.is_request:
             self.transport.sendto(OPCODE_ERR)
         elif packet.mode != Mode.OCTET:
             self.transport.sendto(MODE_ERR)
         else:
             self._task_handler = self._loop.create_task(
                 self.start(packet, addr))
+
+    def send(self, packet, addr=None):
+        self.transport.sendto(packet, addr)
 
     async def start(self, packet, addr):
         request = Request(
@@ -84,11 +85,9 @@ class RequestHandler(asyncio.DatagramProtocol):
                 response = await self.read(request)
             except Exception:
                 formatted_lines = traceback.format_exc().splitlines()
-                self.transport.sendto(
-                    create_packet(
-                        Opcode.ERROR,
-                        error_code=ErrorCode.NOTDEFINED,
-                        error_msg=formatted_lines[-1]).to_bytes(), addr)
+                packet = Error(
+                    ErrorCode.NOTDEFINED, message=formatted_lines[-1])
+                self.transport.sendto(bytes(packet), addr)
             else:
                 transport, protocol = await self._loop.create_datagram_endpoint(
                     lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
@@ -99,11 +98,8 @@ class RequestHandler(asyncio.DatagramProtocol):
                         self.log_access(request, response,
                                         self._loop.time() - now)
                 except FileNotFoundError:
-                    self.transport.sendto(
-                        create_packet(
-                            Opcode.ERROR,
-                            error_code=ErrorCode.FILENOTFOUND,
-                            error_msg="not found").to_Bytes(), addr)
+                    packet = Error(ErrorCode.FILENOTFOUND, message="not found")
+                    self.transport.sendto(bytes(packet), addr)
                 finally:
                     transport.close()
 
@@ -154,7 +150,7 @@ class ReadRequestHandler(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        packet = parse_packet(data)
+        packet = parse(data)
         if packet.opcode == Opcode.ACK and packet.block_no == self.counter:
             waiter = self._waiter
             if waiter is not None:
@@ -166,8 +162,7 @@ class ReadRequestHandler(asyncio.DatagramProtocol):
         if self.counter > 65535:
             self.counter = 0
 
-        packet = create_packet(
-            Opcode.DATA, block_no=self.counter, data=chunk).to_bytes()
+        packet = bytes(Data(block_no=self.counter, data=chunk))
 
         async def sendto_forever():
             while True:
@@ -217,7 +212,7 @@ class WriteRequestHandler(asyncio.DatagramProtocol):
         return self.stream.feed_eof()
 
     def datagram_received(self, data, addr):
-        packet = parse_packet(data)
+        packet = parse(data)
         if packet.opcode == Opcode.DATA and packet.block_no == self.counter:
             last = len(packet.data) < 512
 
@@ -231,7 +226,7 @@ class WriteRequestHandler(asyncio.DatagramProtocol):
             self.ack_handler.cancel()
             self.ack_handler = None
 
-        packet = create_packet(Opcode.ACK, block_no=self.counter).to_bytes()
+        packet = bytes(Ack(block_no=self.counter))
         if last:
             return self.transport.sendto(packet)
 

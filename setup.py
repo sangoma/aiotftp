@@ -24,7 +24,12 @@ setup(
         'attrs',
         'async-timeout'
     ],
-    tests_require=['pytest', 'pytest-asyncio'],
+    tests_require=[
+        'async-generator',
+        'hypothesis',
+        'pytest',
+        'pytest-asyncio'
+    ],
     setup_requires=['setuptools>=17.1'],
     classifiers=[
         'License :: OSI Approved :: Apache Software License',

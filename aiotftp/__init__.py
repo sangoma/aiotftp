@@ -1,4 +1,3 @@
-from .packet import create_packet, parse_packet  # noqa
 from .protocol import RequestHandler
 from .transfers import FileResponse, Response  # noqa
 
