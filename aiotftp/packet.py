@@ -136,7 +136,4 @@ def parse(data):
     """Return a Packet class appropriate to what's in the buffer."""
     with memoryview(data) as buf:
         opcode = Opcode(buf[0:2])
-        try:
-            return PACKETS[opcode].parse(buf)
-        except KeyError:
-            raise ValueError("Invalid TFTP packet")
+        return PACKETS[opcode].parse(buf)
