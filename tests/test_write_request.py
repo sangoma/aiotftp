@@ -1,8 +1,7 @@
 import asyncio
 
 import pytest
-from aiotftp.packet import create_packet, ErrorPacket, parse_packet
-from aiotftp.parser import Mode, Opcode
+from aiotftp.packet import Data, Error, Mode, Opcode, parse, Request
 
 
 class WriteClient(asyncio.DatagramProtocol):
@@ -14,20 +13,22 @@ class WriteClient(asyncio.DatagramProtocol):
 
     def connection_made(self, transport):
         self.transport = transport
-        req = create_packet(
-            Opcode.WRQ, filename=self.filename, mode=Mode.OCTET)
-        transport.sendto(req.to_bytes(), ('127.0.0.1', 1069))
+        try:
+            req = Request(Opcode.WRQ, filename=self.filename, mode=Mode.OCTET)
+            transport.sendto(bytes(req), ('127.0.0.1', 1069))
+        except Exception as exc:
+            self._waiter.set_exception(exc)
+            self.transport.close()
 
     def datagram_received(self, data, addr):
         try:
-            packet = parse_packet(data)
-            if isinstance(packet, ErrorPacket):
-                raise RuntimeError(packet.error_msg)
+            packet = parse(data)
+            if isinstance(packet, Error):
+                raise RuntimeError(packet.message)
 
             chunk, self.contents = self.contents[:512], self.contents[512:]
-            payload = create_packet(
-                Opcode.DATA, block_no=packet.block_no + 1, data=chunk)
-            self.transport.sendto(payload.to_bytes(), addr)
+            payload = Data(block_no=packet.block_no + 1, data=chunk)
+            self.transport.sendto(bytes(payload), addr)
 
             if len(chunk) < 512:
                 self._waiter.set_result(None)

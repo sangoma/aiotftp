@@ -14,7 +14,6 @@ from .transfers import StreamReader
 LOG = logging.getLogger(__name__)
 
 OPCODE_ERR = bytes(Error(ErrorCode.NOTDEFINED, message="invalid opcode"))
-
 MODE_ERR = bytes(Error(ErrorCode.NOTDEFINED, message="OCTET mode only"))
 
 
@@ -99,8 +98,7 @@ class RequestHandler(asyncio.DatagramProtocol):
                         self.log_access(request, response,
                                         self._loop.time() - now)
                 except FileNotFoundError:
-                    packet = Error(
-                        ErrorCode.FILENOTFOUND, message="not found")
+                    packet = Error(ErrorCode.FILENOTFOUND, message="not found")
                     self.transport.sendto(bytes(packet), addr)
                 finally:
                     transport.close()

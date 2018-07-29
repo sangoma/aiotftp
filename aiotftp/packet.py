@@ -1,11 +1,14 @@
 import enum
+import attr
 
 
-def short(n):
+def ushort(n):
     return int.to_bytes(n, length=2, byteorder='big')
 
 
-def parse_short(buf):
+def parse_ushort(buf):
+    if len(buf) != 2:
+        raise ValueError("Requires two bytes")
     return int.from_bytes(buf, byteorder='big')
 
 
@@ -15,11 +18,11 @@ def pairwise(data):
 
 
 class Opcode(enum.Enum):
-    RRQ = short(1)
-    WRQ = short(2)
-    DATA = short(3)
-    ACK = short(4)
-    ERROR = short(5)
+    RRQ = ushort(1)
+    WRQ = ushort(2)
+    DATA = ushort(3)
+    ACK = ushort(4)
+    ERROR = ushort(5)
 
     @property
     def is_request(self):
@@ -27,9 +30,9 @@ class Opcode(enum.Enum):
 
 
 class Mode(enum.Enum):
-    NETASCII = "netascii"
-    OCTET = "octet"
-    MAIL = "mail"
+    NETASCII = b'netascii'
+    OCTET = b'octet'
+    MAIL = b'mail'
 
     @classmethod
     def get(cls, s):
@@ -37,14 +40,14 @@ class Mode(enum.Enum):
 
 
 class ErrorCode(enum.Enum):
-    NOTDEFINED = short(0)
-    FILENOTFOUND = short(1)
-    ACCESSVIOLATION = short(2)
-    DISKFULL = short(3)
-    ILLEGALOPERATION = short(4)
-    UNKNOWNID = short(5)
-    FILEEXISTS = short(6)
-    NOSUCHUSER = short(7)
+    NOTDEFINED = ushort(0)
+    FILENOTFOUND = ushort(1)
+    ACCESSVIOLATION = ushort(2)
+    DISKFULL = ushort(3)
+    ILLEGALOPERATION = ushort(4)
+    UNKNOWNID = ushort(5)
+    FILEEXISTS = ushort(6)
+    NOSUCHUSER = ushort(7)
 
 
 class Packet:
@@ -53,12 +56,12 @@ class Packet:
         return self.opcode.is_request
 
 
+@attr.s
 class Request(Packet):
-    def __init__(self, opcode, filename, mode, options):
-        self.opcode = opcode
-        self.filename = filename
-        self.mode = mode
-        self.options = {}
+    opcode = attr.ib()
+    filename = attr.ib()
+    mode = attr.ib()
+    options = attr.ib(factory=dict)
 
     @classmethod
     def parse(cls, buf):
@@ -66,49 +69,49 @@ class Request(Packet):
         return cls(
             opcode=Opcode(buf[0:2]),
             filename=filename.decode('ascii'),
-            mode=Mode.get(mode.decode('ascii')),
+            mode=Mode.get(mode),
             options=pairwise(field.decode('ascii') for field in extensions))
 
     def __bytes__(self):
-        return b''.join((self.opcode, bytes(self.filename, "ascii"), b"\x00",
-                         self.mode.value, b"\x00"))
+        return b''.join((self.opcode.value, bytes(self.filename, "ascii"),
+                         b"\x00", self.mode.value, b"\x00"))
 
 
+@attr.s
 class Data(Packet):
     opcode = Opcode.DATA
 
-    def __init__(self, block_no, data):
-        self.block_no = block_no
-        self.data = data
+    block_no = attr.ib()
+    data = attr.ib()
 
     @classmethod
     def parse(cls, buf):
-        return cls(block_no=parse_short(buf[2:4]), data=buf[4:])
+        return cls(block_no=parse_ushort(buf[2:4]), data=buf[4:])
 
     def __bytes__(self):
-        return b''.join((self.opcode.value + short(self.block_no), self.data))
+        return b''.join((self.opcode.value + ushort(self.block_no), self.data))
 
 
+@attr.s
 class Ack(Packet):
     opcode = Opcode.ACK
 
-    def __init__(self, block_no):
-        self.block_no = block_no
+    block_no = attr.ib()
 
     @classmethod
     def parse(cls, buf):
-        return cls(block_no=parse_short(buf[2:4]))
+        return cls(block_no=parse_ushort(buf[2:4]))
 
     def __bytes__(self):
-        return b''.join((self.opcode.value, short(self.block_no)))
+        return b''.join((self.opcode.value, ushort(self.block_no)))
 
 
+@attr.s
 class Error(Packet):
     opcode = Opcode.ERROR
 
-    def __init__(self, code, message):
-        self.code = code
-        self.message = message
+    code = attr.ib()
+    message = attr.ib()
 
     @classmethod
     def parse(cls, buf):
