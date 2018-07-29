@@ -26,6 +26,7 @@ def test_parse_valid_packet(buf):
     b"\x00\x02file\x00Ocet\x00",
     b"\x00\x04\x01",
     b"",
+    b"\x00\x05\x00\x0Fno such user\x00",
 ], ids=unicode_escape)
 def test_parse_invalid_packet(buf):
     with pytest.raises(ValueError):
