@@ -18,7 +18,7 @@ async def write(request, transfer):
 
 async def main(loop):
     server = Server(read, write)
-    await loop.create_datagram_endpoint(server, local_addr=('0.0.0.0', 69))
+    await loop.create_datagram_endpoint(server, local_addr=('::', 69))
 
 
 if __name__ == '__main__':

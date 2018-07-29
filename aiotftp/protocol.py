@@ -91,7 +91,7 @@ class RequestHandler(asyncio.DatagramProtocol):
             else:
                 transport, protocol = await self._loop.create_datagram_endpoint(
                     lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
-                    remote_addr=addr)
+                    remote_addr=addr[:2])
                 try:
                     await response.start(protocol)
                     if self.access_log:
@@ -107,7 +107,7 @@ class RequestHandler(asyncio.DatagramProtocol):
             transfer = StreamReader(loop=self._loop)
             transport, protocol = await self._loop.create_datagram_endpoint(
                 lambda: WriteRequestHandler(transfer, timeout=self._timeout, loop=self._loop),
-                remote_addr=addr)
+                remote_addr=addr[:2])
             try:
                 await self.write(request, transfer)
                 if self.access_log:
