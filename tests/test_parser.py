@@ -1,3 +1,4 @@
+from functools import partial
 import string
 
 from aiotftp import packet
@@ -6,8 +7,7 @@ from hypothesis import given
 import hypothesis.strategies as st
 import pytest
 
-ushorts = st.integers(min_value=0, max_value=65535)
-ascii_text = st.text(alphabet=string.ascii_letters)
+unicode_escape = partial(bytes.decode, encoding='unicode_escape')
 
 
 @pytest.mark.parametrize("buf", [
@@ -16,7 +16,7 @@ ascii_text = st.text(alphabet=string.ascii_letters)
     b"\x00\x03\x00\x02some data\x99",
     b"\x00\x04\x01\x04",
     b"\x00\x05\x00\x07no such user\x00",
-])
+], ids=unicode_escape)
 def test_parse_valid_packet(buf):
     assert packet.parse(buf)
 
@@ -26,10 +26,14 @@ def test_parse_valid_packet(buf):
     b"\x00\x02file\x00Ocet\x00",
     b"\x00\x04\x01",
     b"",
-])
+], ids=unicode_escape)
 def test_parse_invalid_packet(buf):
     with pytest.raises(ValueError):
         packet.parse(buf)
+
+
+ushorts = st.integers(min_value=0, max_value=65535)
+ascii_text = st.text(alphabet=string.ascii_letters)
 
 
 @given(st.binary(min_size=2, max_size=2))

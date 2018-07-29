@@ -1,4 +1,5 @@
 import asyncio
+from operator import itemgetter
 
 from aiotftp import Server, Response
 from async_generator import yield_, async_generator
@@ -12,7 +13,7 @@ FILES = {
 }
 
 
-@pytest.fixture(params=list(FILES.items()))
+@pytest.fixture(params=list(FILES.items()), ids=itemgetter(0))
 def files(request):
     return request.param
 
