@@ -89,7 +89,7 @@ class Data(Packet):
         return cls(block_no=parse_ushort(buf[2:4]), data=buf[4:])
 
     def __bytes__(self):
-        return b''.join((self.opcode.value + ushort(self.block_no), self.data))
+        return b''.join((self.opcode.value, ushort(self.block_no), self.data))
 
 
 @attr.s
