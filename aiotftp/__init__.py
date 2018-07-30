@@ -44,7 +44,8 @@ class _Request:
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        await self.stream.wait_eof()
+        if not exc_type:
+            await self.stream.wait_eof()
 
     async def data(self):
         payload = bytearray()

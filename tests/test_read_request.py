@@ -96,13 +96,3 @@ async def test_read(filename, contents, read_client, server, event_loop):
         lambda: read_client(rrq, event_loop), local_addr=('127.0.0.1', 0))
 
     assert await protocol.wait() == contents
-
-
-@pytest.mark.asyncio
-async def test_read_notfound(server, event_loop):
-    rrq = Request(Opcode.RRQ, filename='notfound', mode=Mode.OCTET)
-    _, protocol = await event_loop.create_datagram_endpoint(
-        lambda: ReadClient(rrq, event_loop), local_addr=('127.0.0.1', 0))
-
-    with pytest.raises(RuntimeError):
-        assert await protocol.wait()

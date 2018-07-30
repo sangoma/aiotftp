@@ -231,7 +231,9 @@ class RequestStreamHandler(asyncio.DatagramProtocol):
             return
 
         packet = parse(data)
-        if packet.opcode == Opcode.DATA and packet.block_no == self.blockid:
+        if packet.opcode == Opcode.ERROR:
+            self.stream.set_exception(FileNotFoundError(packet.message))
+        elif packet.opcode == Opcode.DATA and packet.block_no == self.blockid:
             last = len(packet.data) < 512
 
             self.ack(self.blockid, last)
