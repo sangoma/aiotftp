@@ -6,7 +6,7 @@ from contextlib import suppress
 import async_timeout
 import attr
 
-from .helpers import set_result
+from .helpers import get_tid, set_result
 from .logger import AccessLogger, access_log
 from .packet import Ack, Error, Data, ErrorCode, Mode, Opcode, parse
 from .transfers import StreamReader
@@ -27,19 +27,16 @@ class Request:
 class RequestHandler(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
 
-    def __init__(self,
-                 read,
-                 write,
-                 *,
+    def __init__(self, read, write, *,
                  loop=None,
-                 timeout=2.0,
+                 timeout=None,
                  access_log_class=AccessLogger,
                  access_log=access_log,
                  access_log_format=AccessLogger.LOG_FORMAT) -> None:
         if loop is None:
             loop = asyncio.get_event_loop()
         self._loop = loop
-        self._timeout = timeout
+        self._timeout = timeout or 2.0
         self._task_handler = None
 
         self.read = read
@@ -74,48 +71,62 @@ class RequestHandler(asyncio.DatagramProtocol):
         self.transport.sendto(packet, addr)
 
     async def start(self, packet, addr):
+        tid = get_tid(addr)
         request = Request(
             filename=packet.filename, remote=addr, method=packet.opcode)
+
+        if packet.opcode == Opcode.RRQ:
+            await self._start_rrq(request, packet, tid)
+
+        elif packet.opcode == Opcode.WRQ:
+            await self._start_wrq(request, packet, tid)
+
+    async def _start_rrq(self, request, packet, tid):
+        if self.access_log:
+            now = self._loop.time()
+
+        try:
+            response = await self.read(request)
+        except Exception:
+            formatted_lines = traceback.format_exc().splitlines()
+            packet = Error(
+                ErrorCode.NOTDEFINED, message=formatted_lines[-1])
+            self.transport.sendto(bytes(packet), tid)
+        else:
+            transport, protocol = await self._loop.create_datagram_endpoint(
+                lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
+                remote_addr=tid)
+            try:
+                await response.start(protocol)
+                if self.access_log:
+                    self.log_access(request, response,
+                                    self._loop.time() - now)
+            except FileNotFoundError:
+                packet = Error(ErrorCode.FILENOTFOUND, message="not found")
+                self.transport.sendto(bytes(packet), tid)
+            finally:
+                transport.close()
 
         if self.access_log:
             now = self._loop.time()
 
-        if packet.opcode == Opcode.RRQ:
-            try:
-                response = await self.read(request)
-            except Exception:
-                formatted_lines = traceback.format_exc().splitlines()
-                packet = Error(
-                    ErrorCode.NOTDEFINED, message=formatted_lines[-1])
-                self.transport.sendto(bytes(packet), addr)
-            else:
-                transport, protocol = await self._loop.create_datagram_endpoint(
-                    lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
-                    remote_addr=addr[:2])
-                try:
-                    await response.start(protocol)
-                    if self.access_log:
-                        self.log_access(request, response,
-                                        self._loop.time() - now)
-                except FileNotFoundError:
-                    packet = Error(ErrorCode.FILENOTFOUND, message="not found")
-                    self.transport.sendto(bytes(packet), addr)
-                finally:
-                    transport.close()
+    async def _start_wrq(self, request, packet, tid):
+        if self.access_log:
+            now = self._loop.time()
 
-        elif packet.opcode == Opcode.WRQ:
-            transfer = StreamReader(loop=self._loop)
-            transport, protocol = await self._loop.create_datagram_endpoint(
-                lambda: WriteRequestHandler(transfer, timeout=self._timeout, loop=self._loop),
-                remote_addr=addr[:2])
-            try:
-                await self.write(request, transfer)
-                if self.access_log:
-                    self.log_access(request, None, self._loop.time() - now)
-            except Exception:
-                LOG.exception("Inbound transfer crashed")
-            finally:
-                transport.close()
+        transfer = StreamReader(loop=self._loop)
+        transport, protocol = await self._loop.create_datagram_endpoint(
+            lambda: RequestStreamHandler(transfer, tid=tid, timeout=self._timeout, loop=self._loop),
+            remote_addr=tid)
+        try:
+            protocol.start()
+            await self.write(request, transfer)
+            if self.access_log:
+                self.log_access(request, None, self._loop.time() - now)
+        except Exception:
+            LOG.exception("Inbound transfer crashed")
+        finally:
+            transport.close()
 
     async def shutdown(self, timeout=15.0):
         with suppress(asyncio.CancelledError, asyncio.TimeoutError):
@@ -137,13 +148,13 @@ class RequestHandler(asyncio.DatagramProtocol):
 
 
 class ReadRequestHandler(asyncio.DatagramProtocol):
-    def __init__(self, *, timeout=2.0, loop=None):
+    def __init__(self, *, timeout=None, loop=None):
         if loop is None:
             loop = asyncio.get_event_loop()
         self._loop = loop
-        self._timeout = timeout
+        self._timeout = timeout or 2.0
 
-        self.counter = 0
+        self.blockid = 0
         self._waiter = None
 
     def connection_made(self, transport):
@@ -151,18 +162,18 @@ class ReadRequestHandler(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, addr):
         packet = parse(data)
-        if packet.opcode == Opcode.ACK and packet.block_no == self.counter:
+        if packet.opcode == Opcode.ACK and packet.block_no == self.blockid:
             waiter = self._waiter
             if waiter is not None:
                 self._waiter = None
                 set_result(waiter, False)
 
     async def write(self, chunk) -> None:
-        self.counter += 1
-        if self.counter > 65535:
-            self.counter = 0
+        self.blockid += 1
+        if self.blockid > 65535:
+            self.blockid = 0
 
-        packet = bytes(Data(block_no=self.counter, data=chunk))
+        packet = bytes(Data(block_no=self.blockid, data=chunk))
 
         async def sendto_forever():
             while True:
@@ -191,20 +202,20 @@ class ReadRequestHandler(asyncio.DatagramProtocol):
             self._waiter = None
 
 
-class WriteRequestHandler(asyncio.DatagramProtocol):
-    def __init__(self, stream, *, timeout=2.0, loop=None):
+class RequestStreamHandler(asyncio.DatagramProtocol):
+    def __init__(self, stream, *, tid=None, timeout=None, loop=None):
         if loop is None:
             loop = asyncio.get_event_loop()
         self._loop = loop
-        self._timeout = timeout
+        self._timeout = timeout or 2.0
 
-        self.counter = 0
         self.stream = stream
+        self.tid = tid
+        self.blockid = 1
         self.ack_handler = None
 
     def connection_made(self, transport):
         self.transport = transport
-        self.ack(False)
 
     def connection_lost(self, exc):
         if exc:
@@ -212,30 +223,41 @@ class WriteRequestHandler(asyncio.DatagramProtocol):
         return self.stream.feed_eof()
 
     def datagram_received(self, data, addr):
+        tid = get_tid(addr)
+        if not self.tid:
+            self.tid = tid
+        elif self.tid != tid:
+            LOG.debug('Unsolicited packet from {}'.format(addr))
+            return
+
         packet = parse(data)
-        if packet.opcode == Opcode.DATA and packet.block_no == self.counter:
+        if packet.opcode == Opcode.DATA and packet.block_no == self.blockid:
             last = len(packet.data) < 512
 
-            self.ack(last)
+            self.ack(self.blockid, last)
             self.stream.feed_data(packet.data)
             if last:
                 self.stream.feed_eof()
 
-    def ack(self, last):
+            self.blockid += 1
+            if self.blockid > 65535:
+                self.blockid = 0
+
+    def ack(self, blockid, last):
         if self.ack_handler:
             self.ack_handler.cancel()
             self.ack_handler = None
 
-        packet = bytes(Ack(block_no=self.counter))
+        packet = bytes(Ack(blockid))
         if last:
-            return self.transport.sendto(packet)
+            return self.transport.sendto(packet, self.tid)
 
         async def transmission_loop():
             while True:
-                self.transport.sendto(packet)
+                self.transport.sendto(packet, self.tid)
                 await asyncio.sleep(self._timeout)
 
-        self.counter += 1
-        if self.counter > 65535:
-            self.counter = 0
         self.ack_handler = self._loop.create_task(transmission_loop())
+
+    def start(self):
+        self.ack(0, False)

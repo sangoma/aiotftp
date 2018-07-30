@@ -61,7 +61,7 @@ async def server(event_loop):
     runner = Runner()
     server = Server(runner.rrq, runner.wrq, timeout=0.2)
     _, protocol = await event_loop.create_datagram_endpoint(
-        server, local_addr=('0.0.0.0', 1069))
+        server, local_addr=('127.0.0.1', 1069))
 
     await yield_(runner)
     await protocol.shutdown(timeout=2)
