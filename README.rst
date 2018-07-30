@@ -50,7 +50,7 @@ Client example:
    import aiotftp
 
    async def main(loop):
-       async with aiotftp.read('tftp://localhost/pubkey.txt') as response:
+       async with aiotftp.read('tftp://example.org/hello') as response:
            contents = await response.data()
            print(contents.decode())
 
@@ -75,7 +75,7 @@ Server example:
 
    async def main(loop):
        server = Server(read, write)
-       await loop.create_datagram_endpoint(server, local_addr=(None, 69))
+       await loop.create_datagram_endpoint(server, local_addr=('::', 69))
 
    loop = asyncio.get_event_loop()
    loop.run_until_complete(main())
