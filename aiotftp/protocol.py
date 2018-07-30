@@ -85,6 +85,12 @@ class RequestHandler(asyncio.DatagramProtocol):
         if self.access_log:
             now = self._loop.time()
 
+        if self.read is None:
+            packet = Error(
+                ErrorCode.ACCESSVIOLATION, message="Permission denied")
+            self.transport.sendto(bytes(packet), tid)
+            return
+
         try:
             response = await self.read(request)
         except Exception:
@@ -92,20 +98,21 @@ class RequestHandler(asyncio.DatagramProtocol):
             packet = Error(
                 ErrorCode.NOTDEFINED, message=formatted_lines[-1])
             self.transport.sendto(bytes(packet), tid)
-        else:
-            transport, protocol = await self._loop.create_datagram_endpoint(
-                lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
-                remote_addr=tid)
-            try:
-                await response.start(protocol)
-                if self.access_log:
-                    self.log_access(request, response,
-                                    self._loop.time() - now)
-            except FileNotFoundError:
-                packet = Error(ErrorCode.FILENOTFOUND, message="not found")
-                self.transport.sendto(bytes(packet), tid)
-            finally:
-                transport.close()
+            return
+
+        transport, protocol = await self._loop.create_datagram_endpoint(
+            lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
+            remote_addr=tid)
+        try:
+            await response.start(protocol)
+            if self.access_log:
+                self.log_access(request, response,
+                                self._loop.time() - now)
+        except FileNotFoundError:
+            packet = Error(ErrorCode.FILENOTFOUND, message="File not found")
+            self.transport.sendto(bytes(packet), tid)
+        finally:
+            transport.close()
 
         if self.access_log:
             now = self._loop.time()
@@ -113,6 +120,12 @@ class RequestHandler(asyncio.DatagramProtocol):
     async def _start_wrq(self, request, packet, tid):
         if self.access_log:
             now = self._loop.time()
+
+        if self.write is None:
+            packet = Error(
+                ErrorCode.ACCESSVIOLATION, message="Permission denied")
+            self.transport.sendto(bytes(packet), tid)
+            return
 
         transfer = StreamReader(loop=self._loop)
         transport, protocol = await self._loop.create_datagram_endpoint(
