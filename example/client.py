@@ -1,11 +1,16 @@
 import asyncio
+import argparse
 import logging
 
 import aiotftp
 
 
 async def main(loop):
-    async with aiotftp.read('tftp://127.0.0.1/pubkey.txt') as response:
+    parser = argparse.ArgumentParser(description='Fetch files over TFTP')
+    parser.add_argument('url', metavar='URL', type=str)
+
+    args = parser.parse_args()
+    async with aiotftp.read(args.url) as response:
         contents = await response.data()
         print(contents.decode())
 
