@@ -190,5 +190,5 @@ class StreamReader:
         finally:
             self._waiter = None
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return ChunkReader(self)
