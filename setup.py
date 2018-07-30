@@ -11,7 +11,7 @@ def read(fname):
 
 setup(
     name='aiotftp',
-    version='0.1.3',
+    version='0.1.4',
     author='Terry Kerr',
     author_email='terry@dtkerr.ca',
     maintainer='Terry Kerr',
