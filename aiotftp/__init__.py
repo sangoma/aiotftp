@@ -1,22 +1,21 @@
 import asyncio
 import urllib.parse
 
-from .packet import Ack, Opcode, Mode, parse, Request
+from .packet import Ack, Mode, Opcode, Request, parse  # noqa
 from .protocol import RequestHandler, RequestStreamHandler
-from .transfers import StreamReader, FileResponse, Response  # noqa
-from .helpers import get_tid
+from .response import FileResponse, Response, StreamResponse  # noqa
+from .streams import StreamReader
 
 
 class Server:
-    def __init__(self, rrq, wrq, *, timeout=None, loop=None):
-        self._loop = None
+    def __init__(self, rrq, wrq, **kwargs):
         self.rrq = rrq
         self.wrq = wrq
-        self.timeout = timeout
+        self._kwargs = kwargs
 
     def __call__(self):
         return RequestHandler(
-            self.rrq, self.wrq, timeout=self.timeout, loop=self._loop)
+            self.rrq, self.wrq, **self._kwargs)
 
 
 class _Request:

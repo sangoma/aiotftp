@@ -5,43 +5,17 @@ from typing import Optional
 from .helpers import set_result, set_exception
 
 
-class Response:
-    def __init__(self, body):
-        self.body = body
-        self.length = len(body)
+class AsyncStreamIterator:
+    def __init__(self, read_func) -> None:
+        self.read_func = read_func
 
-    async def start(self, writer):
-        body = self.body
-        while True:
-            chunk, body = body[:512], body[512:]
-            await writer.write(chunk)
-            if len(chunk) < 512:
-                break
+    def __aiter__(self) -> 'AsyncStreamIterator':
+        return self
 
-
-class FileResponse:
-    def __init__(self, filename):
-        self.filename = filename
-        self.length = 0
-
-    async def start(self, writer):
-        with open(self.filename, 'rb') as fobj:
-            while True:
-                chunk = fobj.read(512)
-                self.length += len(chunk)
-                await writer.write(chunk)
-                if len(chunk) < 512:
-                    break
-
-
-class ChunkReader:
-    def __init__(self, stream):
-        self.stream = stream
-
-    async def __anext__(self):
-        chunk = await self.stream.read()
+    async def __anext__(self) -> bytes:
+        chunk = await self.read_func()
         if not chunk:
-            raise StopAsyncIteration()
+            raise StopAsyncIteration
         return chunk
 
 
@@ -191,4 +165,4 @@ class StreamReader:
             self._waiter = None
 
     def __aiter__(self):
-        return ChunkReader(self)
+        return AsyncStreamIterator(self.read)

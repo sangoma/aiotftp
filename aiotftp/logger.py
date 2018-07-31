@@ -24,7 +24,6 @@ class AccessLogger:
 
     LOG_FORMAT = '%a %t %o "%r" %b %T'
     FORMAT_RE = re.compile(r'%([atPorbD]|Tf?)')
-    # FORMAT_RE = re.compile(r'%(\{([A-Za-z0-9\-_]+)\}([ie])|[atPrsbODor]|Tf?)')
     CLEANUP_RE = re.compile(r'(%[^s])')
     _FORMAT_CACHE = {}  # type: Dict[str, Tuple[str, List[KeyMethod]]]
 
