@@ -20,6 +20,7 @@ MODE_ERR = bytes(Error(ErrorCode.NOTDEFINED, message="OCTET mode only"))
 @attr.s
 class Request:
     chunk_size = 512
+    timeout = 2.0
 
     tid = attr.ib()
     method = attr.ib()
@@ -32,14 +33,12 @@ class RequestHandler(asyncio.DatagramProtocol):
 
     def __init__(self, read, write, *,
                  loop=None,
-                 timeout=None,
                  access_log_class=AccessLogger,
                  access_log=access_log,
                  access_log_format=AccessLogger.LOG_FORMAT) -> None:
         if loop is None:
             loop = asyncio.get_event_loop()
         self._loop = loop
-        self._timeout = timeout or 2.0
         self._task_handler = None
 
         self.read = read
@@ -128,7 +127,7 @@ class RequestHandler(asyncio.DatagramProtocol):
 
         transfer = StreamReader(loop=self._loop)
         transport, protocol = await self._loop.create_datagram_endpoint(
-            lambda: RequestStreamHandler(transfer, tid=tid, timeout=self._timeout, loop=self._loop),
+            lambda: RequestStreamHandler(transfer, tid=tid, loop=self._loop),
             remote_addr=tid)
         try:
             protocol.start()
@@ -161,11 +160,11 @@ class RequestHandler(asyncio.DatagramProtocol):
 
 
 class RequestStreamHandler(asyncio.DatagramProtocol):
-    def __init__(self, stream, *, tid=None, timeout=None, loop=None):
+    def __init__(self, stream, *, tid=None, loop=None):
         if loop is None:
             loop = asyncio.get_event_loop()
         self._loop = loop
-        self._timeout = timeout or 2.0
+        self._timeout = 2.0
 
         self.stream = stream
         self.tid = tid
@@ -191,7 +190,7 @@ class RequestStreamHandler(asyncio.DatagramProtocol):
         packet = parse(data)
         if packet.opcode == Opcode.ERROR:
             self.stream.set_exception(FileNotFoundError(packet.message))
-        elif packet.opcode == Opcode.DATA and packet.block_no == self.blockid:
+        elif packet.opcode == Opcode.DATA and packet.blockid == self.blockid:
             last = len(packet.data) < 512
 
             self.ack(self.blockid, last)

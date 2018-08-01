@@ -21,7 +21,7 @@ class ReadRequestHandler(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, addr):
         packet = parse(data)
-        if packet.opcode == Opcode.ACK and packet.block_no == self._blockid:
+        if packet.opcode == Opcode.ACK and packet.blockid == self._blockid:
             waiter = self._waiter
             if waiter is not None:
                 self._waiter = None
@@ -32,7 +32,7 @@ class ReadRequestHandler(asyncio.DatagramProtocol):
         if self._blockid > 65535:
             self._blockid = 0
 
-        packet = bytes(Data(block_no=self._blockid, data=chunk))
+        packet = bytes(Data(blockid=self._blockid, data=chunk))
 
         async def sendto_forever():
             self.output_size += len(chunk)
@@ -81,7 +81,7 @@ class StreamResponse:
             return self._writer
 
         transport, protocol = await self._loop.create_datagram_endpoint(
-            lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
+            lambda: ReadRequestHandler(timeout=request.timeout, loop=self._loop),
             remote_addr=request.tid)
 
         self.transport = transport

@@ -55,7 +55,7 @@ def test_request_packets(pkt):
 
 
 data_packets = st.builds(
-    packet.Data, block_no=ushorts, data=st.binary(max_size=512))
+    packet.Data, blockid=ushorts, data=st.binary(max_size=512))
 
 
 @given(data_packets)
@@ -64,7 +64,7 @@ def test_data_packets(pkt):
     assert packet.parse(data) == pkt
 
 
-ack_packets = st.builds(packet.Ack, block_no=ushorts)
+ack_packets = st.builds(packet.Ack, blockid=ushorts)
 
 
 @given(ack_packets)

@@ -2,8 +2,10 @@ import asyncio
 from operator import itemgetter
 
 from aiotftp import Server, Response
+from aiotftp.protocol import Request
 from async_generator import yield_, async_generator
 import pytest
+
 
 FILES = {
     'small_file': b'\x01small\x02',
@@ -31,6 +33,8 @@ def contents(files):
 @pytest.fixture
 @async_generator
 async def server(event_loop):
+    Request.timeout = 0.5
+
     class Runner:
         def __init__(self):
             self.rrq_files = {filename: asyncio.Future() for filename in FILES}
@@ -43,7 +47,7 @@ async def server(event_loop):
                 raise FileNotFoundError(request.filename)
 
             self.rrq_files[request.filename].set_result(None)
-            return Response(body=contents)
+            return Response(data=contents)
 
         async def wrq(self, request, transfer):
             try:
@@ -59,7 +63,7 @@ async def server(event_loop):
                 payload.extend(chunk)
 
     runner = Runner()
-    server = Server(runner.rrq, runner.wrq, timeout=0.2)
+    server = Server(runner.rrq, runner.wrq)
     _, protocol = await event_loop.create_datagram_endpoint(
         server, local_addr=('127.0.0.1', 1069))
 
