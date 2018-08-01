@@ -9,7 +9,7 @@ import attr
 from .helpers import get_tid, set_result
 from .logger import AccessLogger, access_log
 from .packet import Ack, Error, Data, ErrorCode, Mode, Opcode, parse
-from .transfers import StreamReader
+from .streams import StreamReader
 
 LOG = logging.getLogger(__name__)
 
@@ -19,6 +19,10 @@ MODE_ERR = bytes(Error(ErrorCode.NOTDEFINED, message="OCTET mode only"))
 
 @attr.s
 class Request:
+    chunk_size = 512
+    timeout = 2.0
+
+    tid = attr.ib()
     method = attr.ib()
     filename = attr.ib()
     remote = attr.ib()
@@ -29,14 +33,12 @@ class RequestHandler(asyncio.DatagramProtocol):
 
     def __init__(self, read, write, *,
                  loop=None,
-                 timeout=None,
                  access_log_class=AccessLogger,
                  access_log=access_log,
                  access_log_format=AccessLogger.LOG_FORMAT) -> None:
         if loop is None:
             loop = asyncio.get_event_loop()
         self._loop = loop
-        self._timeout = timeout or 2.0
         self._task_handler = None
 
         self.read = read
@@ -73,7 +75,10 @@ class RequestHandler(asyncio.DatagramProtocol):
     async def start(self, packet, addr):
         tid = get_tid(addr)
         request = Request(
-            filename=packet.filename, remote=addr, method=packet.opcode)
+            filename=packet.filename,
+            remote=addr,
+            method=packet.opcode,
+            tid=tid)
 
         if packet.opcode == Opcode.RRQ:
             await self._start_rrq(request, packet, tid)
@@ -95,27 +100,20 @@ class RequestHandler(asyncio.DatagramProtocol):
             response = await self.read(request)
         except Exception:
             formatted_lines = traceback.format_exc().splitlines()
-            packet = Error(
-                ErrorCode.NOTDEFINED, message=formatted_lines[-1])
+            packet = Error(ErrorCode.NOTDEFINED, message=formatted_lines[-1])
             self.transport.sendto(bytes(packet), tid)
             return
 
-        transport, protocol = await self._loop.create_datagram_endpoint(
-            lambda: ReadRequestHandler(timeout=self._timeout, loop=self._loop),
-            remote_addr=tid)
         try:
-            await response.start(protocol)
-            if self.access_log:
-                self.log_access(request, response,
-                                self._loop.time() - now)
+            await response.prepare(request)
         except FileNotFoundError:
             packet = Error(ErrorCode.FILENOTFOUND, message="File not found")
             self.transport.sendto(bytes(packet), tid)
         finally:
-            transport.close()
+            await response.write_eof()
 
         if self.access_log:
-            now = self._loop.time()
+            self.log_access(request, response, self._loop.time() - now)
 
     async def _start_wrq(self, request, packet, tid):
         if self.access_log:
@@ -129,11 +127,12 @@ class RequestHandler(asyncio.DatagramProtocol):
 
         transfer = StreamReader(loop=self._loop)
         transport, protocol = await self._loop.create_datagram_endpoint(
-            lambda: RequestStreamHandler(transfer, tid=tid, timeout=self._timeout, loop=self._loop),
+            lambda: RequestStreamHandler(transfer, tid=tid, loop=self._loop),
             remote_addr=tid)
         try:
             protocol.start()
             await self.write(request, transfer)
+
             if self.access_log:
                 self.log_access(request, None, self._loop.time() - now)
         except Exception:
@@ -160,67 +159,12 @@ class RequestHandler(asyncio.DatagramProtocol):
             self.access_logger.log(request, response, time)
 
 
-class ReadRequestHandler(asyncio.DatagramProtocol):
-    def __init__(self, *, timeout=None, loop=None):
-        if loop is None:
-            loop = asyncio.get_event_loop()
-        self._loop = loop
-        self._timeout = timeout or 2.0
-
-        self.blockid = 0
-        self._waiter = None
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def datagram_received(self, data, addr):
-        packet = parse(data)
-        if packet.opcode == Opcode.ACK and packet.block_no == self.blockid:
-            waiter = self._waiter
-            if waiter is not None:
-                self._waiter = None
-                set_result(waiter, False)
-
-    async def write(self, chunk) -> None:
-        self.blockid += 1
-        if self.blockid > 65535:
-            self.blockid = 0
-
-        packet = bytes(Data(block_no=self.blockid, data=chunk))
-
-        async def sendto_forever():
-            while True:
-                self.transport.sendto(packet)
-                await asyncio.sleep(self._timeout)
-
-        try:
-            coro = asyncio.ensure_future(sendto_forever())
-            await self._wait('write')
-        finally:
-            coro.cancel()
-
-        if len(chunk) < 512:
-            self.transport.close()
-
-    async def _wait(self, func_name):
-        if self._waiter is not None:
-            raise RuntimeError(
-                '{} called while another coroutine is '
-                'already waiting for incoming data'.format(func_name))
-
-        waiter = self._waiter = self._loop.create_future()
-        try:
-            await waiter
-        finally:
-            self._waiter = None
-
-
 class RequestStreamHandler(asyncio.DatagramProtocol):
-    def __init__(self, stream, *, tid=None, timeout=None, loop=None):
+    def __init__(self, stream, *, tid=None, loop=None):
         if loop is None:
             loop = asyncio.get_event_loop()
         self._loop = loop
-        self._timeout = timeout or 2.0
+        self._timeout = 2.0
 
         self.stream = stream
         self.tid = tid
@@ -246,7 +190,7 @@ class RequestStreamHandler(asyncio.DatagramProtocol):
         packet = parse(data)
         if packet.opcode == Opcode.ERROR:
             self.stream.set_exception(FileNotFoundError(packet.message))
-        elif packet.opcode == Opcode.DATA and packet.block_no == self.blockid:
+        elif packet.opcode == Opcode.DATA and packet.blockid == self.blockid:
             last = len(packet.data) < 512
 
             self.ack(self.blockid, last)

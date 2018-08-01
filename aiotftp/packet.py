@@ -81,29 +81,29 @@ class Request(Packet):
 class Data(Packet):
     opcode = Opcode.DATA
 
-    block_no = attr.ib()
+    blockid = attr.ib()
     data = attr.ib()
 
     @classmethod
     def parse(cls, buf):
-        return cls(block_no=parse_ushort(buf[2:4]), data=buf[4:])
+        return cls(blockid=parse_ushort(buf[2:4]), data=buf[4:])
 
     def __bytes__(self):
-        return b''.join((self.opcode.value, ushort(self.block_no), self.data))
+        return b''.join((self.opcode.value, ushort(self.blockid), self.data))
 
 
 @attr.s
 class Ack(Packet):
     opcode = Opcode.ACK
 
-    block_no = attr.ib()
+    blockid = attr.ib()
 
     @classmethod
     def parse(cls, buf):
-        return cls(block_no=parse_ushort(buf[2:4]))
+        return cls(blockid=parse_ushort(buf[2:4]))
 
     def __bytes__(self):
-        return b''.join((self.opcode.value, ushort(self.block_no)))
+        return b''.join((self.opcode.value, ushort(self.blockid)))
 
 
 @attr.s

@@ -8,7 +8,7 @@ class WriteClient(asyncio.DatagramProtocol):
     def __init__(self, filename, contents, loop):
         self.contents = contents
         self.filename = filename
-        self.block_no = 0
+        self.blockid = 0
         self._waiter = loop.create_future()
 
     def connection_made(self, transport):
@@ -27,7 +27,7 @@ class WriteClient(asyncio.DatagramProtocol):
                 raise RuntimeError(packet.message)
 
             chunk, self.contents = self.contents[:512], self.contents[512:]
-            payload = Data(block_no=packet.block_no + 1, data=chunk)
+            payload = Data(blockid=packet.blockid + 1, data=chunk)
             self.transport.sendto(bytes(payload), addr)
 
             if len(chunk) < 512:
