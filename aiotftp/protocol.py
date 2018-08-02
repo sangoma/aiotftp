@@ -99,6 +99,7 @@ class RequestHandler(asyncio.DatagramProtocol):
         try:
             response = await self.read(request)
         except Exception:
+            LOG.exception("RRQ failed")
             formatted_lines = traceback.format_exc().splitlines()
             packet = Error(ErrorCode.NOTDEFINED, message=formatted_lines[-1])
             self.transport.sendto(bytes(packet), tid)
@@ -109,6 +110,7 @@ class RequestHandler(asyncio.DatagramProtocol):
         except FileNotFoundError:
             packet = Error(ErrorCode.FILENOTFOUND, message="File not found")
             self.transport.sendto(bytes(packet), tid)
+            return
         finally:
             await response.write_eof()
 
@@ -136,7 +138,15 @@ class RequestHandler(asyncio.DatagramProtocol):
             if self.access_log:
                 self.log_access(request, None, self._loop.time() - now)
         except Exception:
-            LOG.exception("Inbound transfer crashed")
+            LOG.exception("WWQ failed")
+            formatted_lines = traceback.format_exc().splitlines()
+            packet = Error(ErrorCode.NOTDEFINED, message=formatted_lines[-1])
+            self.transport.sendto(bytes(packet), tid)
+            return
+        except FileNotFoundError:
+            packet = Error(ErrorCode.FILENOTFOUND, message="File not found")
+            self.transport.sendto(bytes(packet), tid)
+            return
         finally:
             transport.close()
 
