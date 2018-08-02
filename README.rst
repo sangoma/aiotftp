@@ -68,9 +68,9 @@ Server example:
            return Response(b'Hello World!\n')
        return FileResponse(request.filename)
 
-   async def write(request, transfer):
+   async def write(request):
        with open(request.filename, 'wb') as fp:
-           async for chunk in transfer:
+           async for chunk in await request.accept():
                fp.write(chunk)
 
    async def main(loop):
