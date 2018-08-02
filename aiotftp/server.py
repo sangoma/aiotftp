@@ -27,6 +27,21 @@ class Request:
     filename = attr.ib()
     remote = attr.ib()
 
+    _loop = attr.ib()
+
+    @_loop.default
+    def _get_event_loop(self):
+        return asyncio.get_event_loop()
+
+    async def accept(self):
+        transfer = StreamReader(loop=self._loop)
+        transport, protocol = await self._loop.create_datagram_endpoint(
+            lambda: RequestStreamHandler(transfer, tid=self.tid, loop=self._loop),
+            remote_addr=self.tid)
+
+        protocol.start()
+        return transfer
+
 
 class RequestHandler(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
@@ -127,16 +142,8 @@ class RequestHandler(asyncio.DatagramProtocol):
             self.transport.sendto(bytes(packet), tid)
             return
 
-        transfer = StreamReader(loop=self._loop)
-        transport, protocol = await self._loop.create_datagram_endpoint(
-            lambda: RequestStreamHandler(transfer, tid=tid, loop=self._loop),
-            remote_addr=tid)
         try:
-            protocol.start()
-            await self.write(request, transfer)
-
-            if self.access_log:
-                self.log_access(request, None, self._loop.time() - now)
+            await self.write(request)
         except Exception:
             LOG.exception("WWQ failed")
             formatted_lines = traceback.format_exc().splitlines()
@@ -147,8 +154,9 @@ class RequestHandler(asyncio.DatagramProtocol):
             packet = Error(ErrorCode.FILENOTFOUND, message="File not found")
             self.transport.sendto(bytes(packet), tid)
             return
-        finally:
-            transport.close()
+
+        if self.access_log:
+            self.log_access(request, None, self._loop.time() - now)
 
     async def shutdown(self, timeout=15.0):
         with suppress(asyncio.CancelledError, asyncio.TimeoutError):

@@ -2,7 +2,7 @@ import asyncio
 from operator import itemgetter
 
 from aiotftp import Server, Response
-from aiotftp.protocol import Request
+from aiotftp.server import Request
 from async_generator import yield_, async_generator
 import pytest
 
@@ -49,18 +49,17 @@ async def server(event_loop):
             self.rrq_files[request.filename].set_result(None)
             return Response(data=contents)
 
-        async def wrq(self, request, transfer):
+        async def wrq(self, request):
             try:
                 future = self.wrq_files[request.filename]
             except KeyError:
                 raise FileNotFoundError(request.filename)
 
             payload = bytearray()
-            while True:
-                chunk = await transfer.read()
-                if not chunk:
-                    return future.set_result(payload)
+            async for chunk in await request.accept():
                 payload.extend(chunk)
+
+            return future.set_result(payload)
 
     runner = Runner()
     server = Server(runner.rrq, runner.wrq)

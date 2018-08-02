@@ -2,8 +2,8 @@ import asyncio
 import urllib.parse
 
 from .packet import Ack, Mode, Opcode, Request, parse  # noqa
-from .protocol import RequestHandler, RequestStreamHandler
 from .response import FileResponse, Response, StreamResponse  # noqa
+from .server import RequestHandler, RequestStreamHandler
 from .streams import StreamReader
 
 
