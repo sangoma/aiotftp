@@ -61,12 +61,12 @@ Server example:
 
 .. code:: python
 
-   from aiotftp import Server, FileResponse, Response
+   import aiotftp
 
    async def read(request):
        if request.filename == 'hello':
-           return Response(b'Hello World!\n')
-       return FileResponse(request.filename)
+           return aiotftp.Response(b'Hello World!\n')
+       return aiotftp.FileResponse(request.filename)
 
    async def write(request):
        with open(request.filename, 'wb') as fp:
@@ -74,7 +74,7 @@ Server example:
                fp.write(chunk)
 
    async def main(loop):
-       server = Server(read, write)
+       server = aiotftp.Server(read, write)
        await loop.create_datagram_endpoint(server, local_addr=('::', 69))
 
    loop = asyncio.get_event_loop()
