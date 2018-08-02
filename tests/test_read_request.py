@@ -89,7 +89,6 @@ def read_client(request, event_loop):
     return request.param
 
 
-@pytest.mark.skip('Broken')
 @pytest.mark.asyncio
 async def test_read(filename, contents, read_client, server, event_loop):
     rrq = Request(Opcode.RRQ, filename=filename, mode=Mode.OCTET)

@@ -52,7 +52,6 @@ async def test_write(filename, contents, server, event_loop):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip('Needs work')
 async def test_write_notfound(server, event_loop):
     _, protocol = await event_loop.create_datagram_endpoint(
         lambda: WriteClient('notfound', b'', event_loop),
