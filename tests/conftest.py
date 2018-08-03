@@ -55,11 +55,7 @@ async def server(event_loop):
             except KeyError:
                 raise FileNotFoundError(request.filename)
 
-            payload = bytearray()
-            async for chunk in await request.accept():
-                payload.extend(chunk)
-
-            return future.set_result(payload)
+            return future.set_result(await request.read())
 
     runner = Runner()
     server = Server(runner.rrq, runner.wrq)

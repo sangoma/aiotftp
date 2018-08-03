@@ -1,65 +1,6 @@
 import asyncio
 
-from .helpers import get_tid, set_result
-from .packet import Ack, Error, Data, ErrorCode, Mode, Opcode, parse
-
-
-class ReadRequestHandler(asyncio.DatagramProtocol):
-    def __init__(self, *, timeout=None, loop=None):
-        if loop is None:
-            loop = asyncio.get_event_loop()
-        self._loop = loop
-        self._timeout = timeout or 2.0
-
-        self._blockid = 0
-        self._waiter = None
-
-        self.output_size = 0
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def datagram_received(self, data, addr):
-        packet = parse(data)
-        if packet.opcode == Opcode.ACK and packet.blockid == self._blockid:
-            waiter = self._waiter
-            if waiter is not None:
-                self._waiter = None
-                set_result(waiter, False)
-
-    async def write(self, chunk) -> None:
-        self._blockid += 1
-        if self._blockid > 65535:
-            self._blockid = 0
-
-        packet = bytes(Data(blockid=self._blockid, data=chunk))
-
-        async def sendto_forever():
-            self.output_size += len(chunk)
-            while True:
-                self.transport.sendto(packet)
-                await asyncio.sleep(self._timeout)
-
-        try:
-            coro = asyncio.ensure_future(sendto_forever())
-            await self._wait('write')
-        finally:
-            coro.cancel()
-
-        if len(chunk) < 512:
-            self.transport.close()
-
-    async def _wait(self, func_name):
-        if self._waiter is not None:
-            raise RuntimeError(
-                '{} called while another coroutine is '
-                'already waiting for incoming data'.format(func_name))
-
-        waiter = self._waiter = self._loop.create_future()
-        try:
-            await waiter
-        finally:
-            self._waiter = None
+from .protocol import OutboundDataProtocol
 
 
 class StreamResponse:
@@ -81,7 +22,7 @@ class StreamResponse:
             return self._writer
 
         transport, protocol = await self._loop.create_datagram_endpoint(
-            lambda: ReadRequestHandler(timeout=request.timeout, loop=self._loop),
+            lambda: OutboundDataProtocol(tid=request.tid, timeout=request.timeout, loop=self._loop),
             remote_addr=request.tid)
 
         self.transport = transport
@@ -141,9 +82,9 @@ class FileResponse(StreamResponse):
         with open(self._path, 'rb') as fobj:
             while True:
                 chunk = fobj.read(request.chunk_size)
-                if not chunk:
-                    break
                 await response.write(chunk)
+                if len(chunk) < 512:
+                    break
 
         self.length = response.output_size
         self._eof_sent = True

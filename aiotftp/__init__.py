@@ -1,9 +1,10 @@
 import asyncio
 import urllib.parse
 
-from .packet import Ack, Mode, Opcode, Request, parse  # noqa
+from .packet import Mode, Opcode, Request
+from .protocol import InboundDataProtocol, OutboundDataProtocol
 from .response import FileResponse, Response, StreamResponse  # noqa
-from .server import RequestHandler, RequestStreamHandler
+from .server import RequestHandler
 from .streams import StreamReader
 
 
@@ -14,8 +15,7 @@ class Server:
         self._kwargs = kwargs
 
     def __call__(self):
-        return RequestHandler(
-            self.rrq, self.wrq, **self._kwargs)
+        return RequestHandler(self.rrq, self.wrq, **self._kwargs)
 
 
 class _Request:
@@ -36,7 +36,7 @@ class _Request:
 
     async def __aenter__(self):
         transport, protocol = await self._loop.create_datagram_endpoint(
-            lambda: RequestStreamHandler(self.stream, loop=self._loop),
+            lambda: InboundDataProtocol(self.stream, tid=None, loop=self._loop),
             local_addr=self.local_addr)
 
         transport.sendto(bytes(self.request), self.remote_addr)
@@ -55,3 +55,35 @@ class _Request:
 
 def read(*args, **kwargs):
     return _Request(*args, **kwargs)
+
+
+async def write(resource, data, *, timeout=2.0, local_addr=None, loop=None):
+    if loop is None:
+        loop = asyncio.get_event_loop()
+
+    url = urllib.parse.urlsplit(resource)
+    if url.scheme != 'tftp':
+        raise ValueError('Unsupported scheme')
+
+    remote_addr = (url.hostname, url.port or 69)
+    local_addr = local_addr or ('0.0.0.0', 0)
+
+    transport, protocol = await loop.create_datagram_endpoint(
+        lambda: OutboundDataProtocol(tid=None, timeout=timeout, loop=loop),
+        local_addr=local_addr)
+
+    await protocol.start(url.path[1:], remote_addr)
+
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        while True:
+            chunk, data = data[:512], data[512:]
+            await protocol.write(chunk)
+            if len(chunk) < 512:
+                break
+
+    else:
+        while True:
+            chunk = data.read(512)
+            await protocol.write(chunk)
+            if len(chunk) < 512:
+                break

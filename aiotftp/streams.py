@@ -114,7 +114,7 @@ class StreamReader:
             raise RuntimeError(
                 'Called while some coroutine is waiting for incoming data.')
 
-        return self._read_nowait(n)
+        return self._read_nowait(-1)
 
     def _read_nowait_chunk(self, n):
         first_buffer = self._buffer[0]
