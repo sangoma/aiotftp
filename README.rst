@@ -57,6 +57,17 @@ Client example:
    loop = asyncio.get_event_loop()
    loop.run_until_complete(main())
 
+.. code:: python
+
+   import aiotftp
+
+   async def main(loop):
+       with open('example.txt', 'rb') as fobj:
+           await aiotftp.write(args.url, data=fobj)
+
+   loop = asyncio.get_event_loop()
+   loop.run_until_complete(main())
+
 Server example:
 
 .. code:: python
