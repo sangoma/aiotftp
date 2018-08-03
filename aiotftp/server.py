@@ -42,6 +42,12 @@ class Request:
         protocol.start()
         return transfer
 
+    async def read(self):
+        payload = bytearray()
+        async for chunk in await self.accept():
+            payload.extend(chunk)
+        return bytes(payload)
+
 
 class RequestHandler(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
