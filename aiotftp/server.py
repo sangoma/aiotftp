@@ -23,6 +23,7 @@ class Request:
     chunk_size = 512
     timeout = 2.0
 
+    app = attr.ib()
     tid = attr.ib()
     method = attr.ib()
     filename = attr.ib()
@@ -53,7 +54,11 @@ class Request:
 class RequestHandler(asyncio.DatagramProtocol):
     """Primary listener to dispatch incoming requests."""
 
-    def __init__(self, read, write, *,
+    def __init__(self,
+                 app,
+                 read,
+                 write,
+                 *,
                  loop=None,
                  access_log_class=AccessLogger,
                  access_log=access_log,
@@ -63,6 +68,7 @@ class RequestHandler(asyncio.DatagramProtocol):
         self._loop = loop
         self._task_handler = None
 
+        self._app = app
         self.read = read
         self.write = write
 
@@ -97,6 +103,7 @@ class RequestHandler(asyncio.DatagramProtocol):
     async def start(self, packet, addr):
         tid = get_tid(addr)
         request = Request(
+            app=self._app,
             filename=packet.filename,
             remote=addr,
             method=packet.opcode,

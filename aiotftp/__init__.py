@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import MutableMapping
 import urllib.parse
 
 from .packet import Mode, Opcode, Request
@@ -8,14 +9,30 @@ from .server import RequestHandler
 from .streams import StreamReader
 
 
-class Server:
+class Server(MutableMapping):
     def __init__(self, rrq, wrq, **kwargs):
         self.rrq = rrq
         self.wrq = wrq
+        self._state = {}
         self._kwargs = kwargs
 
     def __call__(self):
-        return RequestHandler(self.rrq, self.wrq, **self._kwargs)
+        return RequestHandler(self, self.rrq, self.wrq, **self._kwargs)
+
+    def __getitem__(self, key):
+        return self._state[key]
+
+    def __setitem__(self, key, value):
+        self._state[key] = value
+
+    def __delitem__(self, key):
+        del self._state[key]
+
+    def __iter__(self):
+        return iter(self._state)
+
+    def __len__(self):
+        return len(self._state)
 
 
 class _Request:
@@ -36,7 +53,8 @@ class _Request:
 
     async def __aenter__(self):
         transport, protocol = await self._loop.create_datagram_endpoint(
-            lambda: InboundDataProtocol(self.stream, tid=None, loop=self._loop),
+            lambda: InboundDataProtocol(
+                self.stream, tid=None, loop=self._loop),
             local_addr=self.local_addr)
 
         transport.sendto(bytes(self.request), self.remote_addr)

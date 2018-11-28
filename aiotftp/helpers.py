@@ -10,5 +10,5 @@ def set_exception(fut, etc):
 
 def get_tid(addr):
     if len(addr) == 4 and addr[2:] != (0, 0):
-        raise ValueError('Unsupported IPv6 address type: {}'.format(addr))
+        raise ValueError("Unsupported IPv6 address type: {}".format(addr))
     return addr[:2]
